@@ -1,9 +1,8 @@
 package isel.leic.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -15,6 +14,12 @@ public class User {
 
     @Column(nullable = false)
     private String password;
+
+    @ManyToMany(mappedBy = "sharedByUser" ,fetch = FetchType.EAGER)
+    private List<FileSharing> filesSharedByUser;
+
+    @ManyToMany(mappedBy = "sharedToUser",  fetch = FetchType.EAGER)
+    private List<FileSharing> filesSharedToUser;
 
     public User(){
 
@@ -40,6 +45,22 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public List<FileSharing> getFilesSharedByUser() {
+        return filesSharedByUser;
+    }
+
+    public void setFilesSharedByUser(List<FileSharing> filesSharedByUser) {
+        this.filesSharedByUser = filesSharedByUser;
+    }
+
+    public List<FileSharing> getFilesSharedToUser() {
+        return filesSharedToUser;
+    }
+
+    public void setFilesSharedToUser(List<FileSharing> filesSharedToUser) {
+        this.filesSharedToUser = filesSharedToUser;
     }
 
 }

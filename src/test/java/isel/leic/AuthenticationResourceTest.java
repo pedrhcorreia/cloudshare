@@ -22,8 +22,8 @@ public class AuthenticationResourceTest {
     @Test
     @Order(1)
     public void testSignupEndpoint_ValidCredentials() {
-        String username = "new_user";
-        String password = "new_password";
+        String username = "new-user";
+        String password = "new-password";
 
         String jsonBody = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
 
@@ -40,9 +40,27 @@ public class AuthenticationResourceTest {
 
     @Test
     @Order(2)
+    public void testSignupEndpoint_ExistingUsername() {
+        String existingUsername = "new-user"; // Assume this username already exists
+
+        // Construct the request body with an existing username
+        String jsonBody = "{\"username\":\"" + existingUsername + "\",\"password\":\"new_password\"}";
+
+        given()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(jsonBody)
+                .when()
+                .post("/auth/signup")
+                .then()
+                .statusCode(409) // Conflict status code
+                .body(equalTo("Username already exists")); // Verify the response message
+    }
+
+    @Test
+    @Order(3)
     public void testLoginEndpoint_ValidCredentials() {
-        String username = "new_user";
-        String password = "new_password";
+        String username = "new-user";
+        String password = "new-password";
 
         String jsonBody = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
 
@@ -58,10 +76,10 @@ public class AuthenticationResourceTest {
     }
 
     @Test
-    @Order(3)
+    @Order(4)
     public void testLoginEndpoint_InvalidCredentials() {
-        String username = "wrong_username";
-        String password = "wrong_password";
+        String username = "wrong-username";
+        String password = "wrong-password";
 
         String jsonBody = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
 
@@ -76,9 +94,9 @@ public class AuthenticationResourceTest {
     }
 
     @Test
-    @Order(4)
+    @Order(5)
     public void testDeleteUser_Unauthenticated() {
-        String username = "new_user";
+        String username = "new-user";
 
         given()
                 .contentType(ContentType.JSON)
@@ -89,7 +107,7 @@ public class AuthenticationResourceTest {
     }
 
     @Test
-    @Order(5)
+    @Order(6)
     public void testDeleteUser_Unauthorized() {
 
         String usernameToDelete = "username1"; // User to be deleted
@@ -104,11 +122,11 @@ public class AuthenticationResourceTest {
     }
 
     @Test
-    @Order(7)
+    @Order(8)
     public void testDeleteUser_ValidCredentials() {
         assertNotNull(token);
 
-        String username = "new_user";
+        String username = "new-user";
 
         given()
                 .header("Authorization", "Bearer " + token)
@@ -120,10 +138,10 @@ public class AuthenticationResourceTest {
     }
 
     @Test
-    @Order(6)
+    @Order(7)
     public void testSignupEndpoint_InvalidCredentials() {
-        String username = "new_user";
-        String password = "existing_password";
+        String username = "new-user";
+        String password = "existing-password";
 
         String jsonBody = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
 

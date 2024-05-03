@@ -28,7 +28,7 @@ public class TokenUtils {
         claimsBuilder.issuer(issuer);
         claimsBuilder.subject(username);
         claimsBuilder.issuedAt(currentTimeInSecs);
-        claimsBuilder.expiresAt(currentTimeInSecs + duration); // Assuming DEFAULT_DURATION is defined somewhere
+        claimsBuilder.expiresAt(currentTimeInSecs + duration);
         // Set other claims as needed
 
         // Specify the signature algorithm explicitly
