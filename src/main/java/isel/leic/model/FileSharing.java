@@ -1,6 +1,5 @@
 package isel.leic.model;
 
-
 import jakarta.persistence.*;
 
 @Entity
@@ -12,23 +11,26 @@ public class FileSharing {
     @Column(name = "id")
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "shared_by_username", referencedColumnName = "username")
-    private User sharedByUser;
+    @Column(name = "shared_by_user_id")
+    private Long sharedByUserId;
 
-    @ManyToOne
-    @JoinColumn(name = "shared_to_username", referencedColumnName = "username")
-    private User sharedToUser;
+    @Column(name = "shared_to_user_id")
+    private Long sharedToUserId;
 
-    @Column(name = "filename", nullable = false, unique = true)
+    @Column(name = "shared_to_group_id")
+    private Long sharedToGroupId;
+
+    @Column(name = "filename", nullable = false)
     private String filename;
+
     // Constructors
     public FileSharing() {
     }
 
-    public FileSharing(User sharedByUser, User sharedToUser, String filename) {
-        this.sharedByUser = sharedByUser;
-        this.sharedToUser = sharedToUser;
+    public FileSharing(Long sharedByUserId, Long sharedToUserId, Long sharedToGroupId, String filename) {
+        this.sharedByUserId = sharedByUserId;
+        this.sharedToUserId = sharedToUserId;
+        this.sharedToGroupId = sharedToGroupId;
         this.filename = filename;
     }
 
@@ -41,20 +43,28 @@ public class FileSharing {
         this.id = id;
     }
 
-    public User getSharedByUsername() {
-        return sharedByUser;
+    public Long getSharedByUserId() {
+        return sharedByUserId;
     }
 
-    public void setSharedByUsername(User sharedByUser) {
-        this.sharedByUser = sharedByUser;
+    public void setSharedByUserId(Long sharedByUserId) {
+        this.sharedByUserId = sharedByUserId;
     }
 
-    public User getSharedToUsername() {
-        return sharedToUser;
+    public Long getSharedToUserId() {
+        return sharedToUserId;
     }
 
-    public void setSharedToUsername(User sharedToUser) {
-        this.sharedToUser = sharedToUser;
+    public void setSharedToUserId(Long sharedToUserId) {
+        this.sharedToUserId = sharedToUserId;
+    }
+
+    public Long getSharedToGroupId() {
+        return sharedToGroupId;
+    }
+
+    public void setSharedToGroupId(Long sharedToGroupId) {
+        this.sharedToGroupId = sharedToGroupId;
     }
 
     public String getFilename() {
@@ -65,3 +75,4 @@ public class FileSharing {
         this.filename = filename;
     }
 }
+

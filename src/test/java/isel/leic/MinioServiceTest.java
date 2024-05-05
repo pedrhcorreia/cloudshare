@@ -2,8 +2,8 @@ package isel.leic;
 
 
 import io.quarkus.test.junit.QuarkusTest;
-import isel.leic.model.FileObject;
-import isel.leic.model.FormData;
+import isel.leic.model.minio.FileObject;
+import isel.leic.model.minio.FormData;
 import isel.leic.service.MinioService;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.*;

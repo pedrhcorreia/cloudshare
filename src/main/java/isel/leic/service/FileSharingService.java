@@ -19,19 +19,30 @@ public class FileSharingService {
     @Inject
     FileSharingRepository fileSharingRepository;
 
-    // Method to share a file with a user
-    public void shareFile(User sharedByUsername, User sharedToUsername, String filename) {
-        LOGGER.info("Sharing file '{}' from user '{}' to user '{}'", filename, sharedByUsername.getUsername(), sharedToUsername.getUsername());
+
+    public void shareFileToUser(Long sharedByUsername, Long sharedToUsername, String filename) {
+        LOGGER.info("Sharing file '{}' from user '{}' to user '{}'", filename, sharedByUsername, sharedToUsername);
         if (fileSharingRepository.existsByUsersAndFilename(sharedByUsername, sharedToUsername, filename)) {
-            LOGGER.warn("File '{}' is already shared between users '{}' and '{}'", filename, sharedByUsername.getUsername(), sharedToUsername.getUsername());
+            LOGGER.warn("File '{}' is already shared between users '{}' and '{}'", filename, sharedByUsername, sharedToUsername);
             throw new DuplicateFileSharingException("File '" + filename + "' is already shared between the users.");
         }
-        FileSharing fileSharing = new FileSharing(sharedByUsername, sharedToUsername, filename);
+        FileSharing fileSharing = new FileSharing(sharedByUsername, sharedToUsername, null, filename);
         fileSharingRepository.persist(fileSharing);
-        LOGGER.info("File '{}' shared successfully from user '{}' to user '{}'", filename, sharedByUsername.getUsername(), sharedToUsername.getUsername());
+        LOGGER.info("File '{}' shared successfully from user '{}' to user '{}'", filename, sharedByUsername, sharedToUsername);
     }
 
-    // Method to remove a file sharing entry
+    public void shareFileToGroup(Long sharedByUsername, Long sharedToGroup, String filename) {
+        LOGGER.info("Sharing file '{}' from user '{}' to group '{}'", filename, sharedByUsername, sharedToGroup);
+        if (fileSharingRepository.existsByUsersAndFilename(sharedByUsername, sharedToGroup, filename)) {
+            LOGGER.warn("File '{}' is already shared between user '{}' and group '{}'", filename, sharedByUsername, sharedToGroup);
+            throw new DuplicateFileSharingException("File '" + filename + "' is already shared between the user and group.");
+        }
+        FileSharing fileSharing = new FileSharing(sharedByUsername, null, sharedToGroup, filename);
+        fileSharingRepository.persist(fileSharing);
+        LOGGER.info("File '{}' shared successfully from user '{}' to group '{}'", filename, sharedByUsername, sharedToGroup);
+    }
+
+
     public void unshareFile(Long fileSharingId) {
         LOGGER.info("Unsharing file with ID {}", fileSharingId);
         // Find the file sharing entry by its ID

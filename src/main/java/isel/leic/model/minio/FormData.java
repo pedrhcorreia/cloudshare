@@ -1,4 +1,4 @@
-package isel.leic.model;
+package isel.leic.model.minio;
 
 import java.io.File;
 import jakarta.ws.rs.core.MediaType;

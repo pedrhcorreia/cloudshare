@@ -3,6 +3,9 @@ package isel.leic;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import isel.leic.model.User;
+import isel.leic.service.UserService;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -18,6 +21,9 @@ import static org.hamcrest.Matchers.notNullValue;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class AuthenticationResourceTest {
     private static String token;
+
+    @Inject
+    UserService userService;
 
     @Test
     @Order(1)
@@ -110,7 +116,7 @@ public class AuthenticationResourceTest {
     @Order(6)
     public void testDeleteUser_Unauthorized() {
 
-        String usernameToDelete = "username1"; // User to be deleted
+        Long usernameToDelete = 6000L; // User to be deleted
 
         given()
                 .header("Authorization", "Bearer " + token)
@@ -126,15 +132,16 @@ public class AuthenticationResourceTest {
     public void testDeleteUser_ValidCredentials() {
         assertNotNull(token);
 
-        String username = "new-user";
+
+        User user = userService.findByUsername("new-user");
 
         given()
                 .header("Authorization", "Bearer " + token)
                 .when()
-                .delete("/auth/" + username)
+                .delete("/auth/" + user.getId())
                 .then()
                 .statusCode(200)
-                .body(equalTo("User " + username + " deleted successfully."));
+                .body(equalTo("User " + user.getId() + " deleted successfully."));
     }
 
     @Test

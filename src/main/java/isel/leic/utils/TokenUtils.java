@@ -1,11 +1,11 @@
 package isel.leic.utils;
 
 import io.smallrye.jwt.algorithm.SignatureAlgorithm;
+
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.jwt.build.JwtClaimsBuilder;
-import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.ConfigProvider;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jose4j.jwt.JwtClaims;
 
 
 import java.io.InputStream;
@@ -15,10 +15,11 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 
 
+
 public class TokenUtils {
 
 
-    public static String generateToken(String username, String issuer, Long duration) throws Exception {
+    public static String generateToken(Long userId, String issuer, Long duration) throws Exception {
         String privateLocation = ConfigProvider.getConfig().getValue("jwt.private-key-location", String.class);
         PrivateKey privateKey = readPrivateKey(privateLocation);
 
@@ -26,7 +27,7 @@ public class TokenUtils {
         long currentTimeInSecs = currentTimeInSecs();
 
         claimsBuilder.issuer(issuer);
-        claimsBuilder.subject(username);
+        claimsBuilder.subject(String.valueOf(userId));
         claimsBuilder.issuedAt(currentTimeInSecs);
         claimsBuilder.expiresAt(currentTimeInSecs + duration);
         // Set other claims as needed
@@ -68,4 +69,6 @@ public class TokenUtils {
         long currentTimeMS = System.currentTimeMillis();
         return (int) (currentTimeMS / 1000);
     }
+
+
 }

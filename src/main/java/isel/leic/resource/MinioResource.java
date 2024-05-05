@@ -1,8 +1,6 @@
 package isel.leic.resource;
 
 
-import isel.leic.model.FileObject;
-import isel.leic.model.FormData;
 import isel.leic.service.MinioService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;

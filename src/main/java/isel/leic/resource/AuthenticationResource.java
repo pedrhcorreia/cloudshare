@@ -41,10 +41,7 @@ public class AuthenticationResource {
     @ConfigProperty(name = "user.bucket.suffix")
     String bucket_suffix;
 
-    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]{3,20}$");
-
-
-
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9-]{3,20}$");
 
     @POST
     @PermitAll
@@ -55,7 +52,7 @@ public class AuthenticationResource {
         if (user != null) {
             LOGGER.info("User authenticated successfully: {}", user.getUsername());
             try {
-                String token = TokenUtils.generateToken(user.getUsername(), tokenIssuer, tokenDuration);
+                String token = TokenUtils.generateToken(user.getId(), tokenIssuer, tokenDuration);
                 LOGGER.info("Generated token for user: {}", user.getUsername());
                 return Response.ok().entity(token).build();
             } catch (Exception e) {
@@ -81,17 +78,17 @@ public class AuthenticationResource {
                     .entity("Invalid username format. Username must contain only letters and numbers, between 3 and 20 characters.")
                     .build();
         }
-        if (userService.existsByUsername(signupRequest.username)) {
+        if (userService.findByUsername(signupRequest.username) != null) {
             LOGGER.warn("Username already exists: {}", signupRequest.username);
             return Response.status(Response.Status.CONFLICT)
                     .entity("Username already exists")
                     .build();
         }
         User newUser = new User(signupRequest.username, signupRequest.password);
-        userService.persist(newUser);
-        minioService.createBucket(newUser.getUsername()+bucket_suffix);
+        userService.createUser(newUser);
+        minioService.createBucket(newUser.getId()+bucket_suffix);
         try {
-            String token = TokenUtils.generateToken(newUser.getUsername(), tokenIssuer, tokenDuration);
+            String token = TokenUtils.generateToken(newUser.getId(), tokenIssuer, tokenDuration);
             LOGGER.info("User signed up successfully: {}", newUser.getUsername());
             return Response.ok().entity(token).build();
         } catch (Exception e) {
@@ -103,40 +100,40 @@ public class AuthenticationResource {
 
     @DELETE
     @Authenticated
-    @Path("/{username}")
-    public Response deleteUser(@PathParam("username") String username, @Context SecurityContext securityContext) {
-        LOGGER.info("Received delete request for user: {}", username);
+    @Path("/{id}")
+    public Response deleteUser(@PathParam("id") Long id, @Context SecurityContext securityContext) {
+        LOGGER.info("Received delete request for user: {}", id);
         String authenticatedUsername = securityContext.getUserPrincipal().getName();
 
-        if (!authenticatedUsername.equals(username)) {
-            LOGGER.warn("Unauthorized attempt to delete user: {}", username);
+        if (!authenticatedUsername.equals(String.valueOf(id))) {
+            LOGGER.warn("Unauthorized attempt to delete user: {}", id);
             return Response.status(Response.Status.UNAUTHORIZED).entity("You are not authorized to delete this user").build();
         }
-        User user = userService.findByUsername(username);
+        User user = userService.findById(id);
 
         if (user == null) {
-            LOGGER.warn("User not found: {}", username);
+            LOGGER.warn("User not found: {}", id);
             return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
         }
 
         userService.delete(user);
-        minioService.deleteBucket(username + bucket_suffix);
+        minioService.deleteBucket(id + bucket_suffix);
 
-        LOGGER.info("User {} deleted successfully.", username);
-        return Response.ok().entity("User " + username + " deleted successfully.").build();
+        LOGGER.info("User {} deleted successfully.", id);
+        return Response.ok().entity("User " + id + " deleted successfully.").build();
     }
 
     @POST
     @Path("/refresh-token")
     @Authenticated
     public Response refreshToken(@Context SecurityContext securityContext) {
-        String username = securityContext.getUserPrincipal().getName();
-        LOGGER.info("Received refresh token request for user: {}", username);
+        String userId = securityContext.getUserPrincipal().getName();
+        LOGGER.info("Received refresh token request for user: {}", userId);
         try {
-            String newToken = TokenUtils.generateToken(username, tokenIssuer, tokenDuration);
+            String newToken = TokenUtils.generateToken(Long.valueOf(userId), tokenIssuer, tokenDuration);
             return Response.ok(newToken).build();
         } catch (Exception e) {
-            LOGGER.error("Failed to refresh token for user: {}", username, e);
+            LOGGER.error("Failed to refresh token for user: {}", userId, e);
             return Response.status(Response.Status.UNAUTHORIZED).entity("Token refresh failed").build();
         }
     }

@@ -1,8 +1,12 @@
 package isel.leic.service;
 
 import isel.leic.model.FileSharing;
+import isel.leic.model.Group;
+import isel.leic.model.GroupMember;
 import isel.leic.model.User;
 import isel.leic.repository.FileSharingRepository;
+import isel.leic.repository.GroupMemberRepository;
+import isel.leic.repository.GroupRepository;
 import isel.leic.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,16 +28,26 @@ public class UserService {
     UserRepository userRepository;
 
     @Inject
-    FileSharingService fileSharingService;
+    GroupMemberRepository groupMemberRepository;
 
-    public User findByUsername(String username) {
-        LOGGER.info("Fetching user by username: {}", username);
-        return userRepository.findByUsername(username);
+    @Inject
+    FileSharingRepository fileSharingRepository;
+
+    @Inject
+    GroupRepository groupRepository;
+
+    public User findById(Long id) {
+        LOGGER.info("Fetching user by id: {}", id);
+        return userRepository.findById(id);
     }
 
-    public boolean existsByUsername(String username) {
-        LOGGER.info("Checking if user exists with username: {}", username);
-        return userRepository.findByUsername(username) != null;
+    public User findByUsername(String username){
+        return  userRepository.findByUsername(username);
+    }
+
+    public boolean existsById(Long id) {
+        LOGGER.info("Checking if user exists with id: {}", id);
+        return userRepository.findById(id) != null;
     }
 
     public List<User> findAll() {
@@ -41,42 +55,28 @@ public class UserService {
         return userRepository.listAll();
     }
 
-    public List<FileSharing> getFilesSharedByUser(String sharedByUsername) {
-        LOGGER.info("Fetching files shared by user: {}", sharedByUsername);
-        return findByUsername(sharedByUsername).getFilesSharedByUser();
+    public List<FileSharing> getFilesSharedByUser(Long userId) {
+        LOGGER.info("Fetching files shared by user: {}", userId);
+        return fileSharingRepository.findBySharedByUserId(userId);
     }
 
-    public List<FileSharing> getFilesSharedToUser(String sharedToUsername) {
-        LOGGER.info("Fetching files shared to user: {}", sharedToUsername);
-        return findByUsername(sharedToUsername).getFilesSharedToUser();
+    public List<FileSharing> getFilesSharedToUser(Long sharedToUsernameId) {
+        LOGGER.info("Fetching files shared to user: {}", sharedToUsernameId);
+        return fileSharingRepository.findBySharedToUserId(sharedToUsernameId);
     }
 
-    public void persist(User user) {
+    public void createUser(User user) {
         LOGGER.info("Persisting user: {}", user.getUsername());
         userRepository.persist(user);
     }
 
     public void delete(User user) {
-        LOGGER.info("Deleting user: {}", user.getUsername());
-
-        List<FileSharing> fileSharingList = user.getFilesSharedByUser();
-        if (fileSharingList != null) {
-            fileSharingList.forEach(fileSharing -> {
-                LOGGER.info("Unsharing file {} associated with user {}", fileSharing.getFilename(), user.getUsername());
-                fileSharingService.unshareFile(fileSharing.getId());
-            });
-        }
-
-        List<FileSharing> fileSharingListSharedWithUser = user.getFilesSharedToUser();
-        if (fileSharingListSharedWithUser != null) {
-            fileSharingListSharedWithUser.forEach(fileSharing -> {
-                LOGGER.info("Unsharing file {} shared with user {}", fileSharing.getFilename(), user.getUsername());
-                fileSharingService.unshareFile(fileSharing.getId());
-            });
-        }
-
+        LOGGER.info("Deleting user: {}", user.getId());
+        /*for(GroupMember member: groupMemberRepository.findByUserId(user.getId())){
+            groupMemberRepository.delete(member);
+        }*/
         userRepository.delete(user);
-        LOGGER.info("User {} deleted successfully", user.getUsername());
+        LOGGER.info("User {} deleted successfully", user.getId());
     }
 
     public Optional<User> authenticate(String username, String password) {
@@ -91,4 +91,22 @@ public class UserService {
         LOGGER.info("User {} authentication failed", username);
         return Optional.empty();
     }
+
+
+
+    public List<Group> findUserGroups(Long userId) {
+        LOGGER.info("Finding groups for user with id '{}'", userId);
+
+        User user = userRepository.findById(userId);
+        if (user == null) {
+            LOGGER.error("User with id '{}' not found", userId);
+            return null;
+        }
+
+        List<Group> userGroups = groupRepository.findByCreatorId(userId);
+        LOGGER.info("Found {} group(s) for user with id '{}'", userGroups.size(), userId);
+        return userGroups;
+    }
+
+
 }

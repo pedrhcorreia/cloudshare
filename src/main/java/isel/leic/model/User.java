@@ -9,17 +9,16 @@ import java.util.List;
 public class User {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @Column(nullable = false,unique = true)
     private String username;
 
     @Column(nullable = false)
     private String password;
 
-    @ManyToMany(mappedBy = "sharedByUser" ,fetch = FetchType.EAGER)
-    private List<FileSharing> filesSharedByUser;
 
-    @ManyToMany(mappedBy = "sharedToUser",  fetch = FetchType.EAGER)
-    private List<FileSharing> filesSharedToUser;
 
     public User(){
 
@@ -30,7 +29,9 @@ public class User {
         this.password = password;
     }
 
-
+    public Long getId(){
+        return id;
+    }
     public String getUsername() {
         return username;
     }
@@ -45,22 +46,6 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public List<FileSharing> getFilesSharedByUser() {
-        return filesSharedByUser;
-    }
-
-    public void setFilesSharedByUser(List<FileSharing> filesSharedByUser) {
-        this.filesSharedByUser = filesSharedByUser;
-    }
-
-    public List<FileSharing> getFilesSharedToUser() {
-        return filesSharedToUser;
-    }
-
-    public void setFilesSharedToUser(List<FileSharing> filesSharedToUser) {
-        this.filesSharedToUser = filesSharedToUser;
     }
 
 }
