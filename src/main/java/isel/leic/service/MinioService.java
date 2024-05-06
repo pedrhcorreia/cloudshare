@@ -1,7 +1,7 @@
 package isel.leic.service;
 
-import isel.leic.model.minio.FileObject;
-import isel.leic.model.minio.FormData;
+import isel.leic.model.objectstorage.FileObject;
+import isel.leic.model.objectstorage.FormData;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;

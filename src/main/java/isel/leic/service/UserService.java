@@ -1,8 +1,9 @@
 package isel.leic.service;
 
+import isel.leic.exceptions.GroupNotFoundException;
+import isel.leic.exceptions.UserNotFoundException;
 import isel.leic.model.FileSharing;
 import isel.leic.model.Group;
-import isel.leic.model.GroupMember;
 import isel.leic.model.User;
 import isel.leic.repository.FileSharingRepository;
 import isel.leic.repository.GroupMemberRepository;
@@ -27,11 +28,6 @@ public class UserService {
     @Inject
     UserRepository userRepository;
 
-    @Inject
-    GroupMemberRepository groupMemberRepository;
-
-    @Inject
-    FileSharingRepository fileSharingRepository;
 
     @Inject
     GroupRepository groupRepository;
@@ -42,7 +38,10 @@ public class UserService {
     }
 
     public User findByUsername(String username){
-        return  userRepository.findByUsername(username);
+        Optional<User> userOptional = userRepository.findByUsername(username);
+
+        //not ideal but function  used only for checks in tests function + 1 use in signup
+        return userOptional.orElse(null);
     }
 
     public boolean existsById(Long id) {
@@ -52,44 +51,62 @@ public class UserService {
 
     public List<User> findAll() {
         LOGGER.info("Fetching all users");
-        return userRepository.listAll();
+        List<User> users = userRepository.listAll();
+        LOGGER.info("Fetched {} users", users.size());
+        return users;
     }
 
-    public List<FileSharing> getFilesSharedByUser(Long userId) {
-        LOGGER.info("Fetching files shared by user: {}", userId);
-        return fileSharingRepository.findBySharedByUserId(userId);
-    }
+    public void updatePassword(Long userId, String password) {
+        if (userId == null || password == null) {
+            throw new IllegalArgumentException("User ID and password cannot be null");
+        }
 
-    public List<FileSharing> getFilesSharedToUser(Long sharedToUsernameId) {
-        LOGGER.info("Fetching files shared to user: {}", sharedToUsernameId);
-        return fileSharingRepository.findBySharedToUserId(sharedToUsernameId);
-    }
+        User user = userRepository.findById(userId);
+        if (user == null) {
+            throw new UserNotFoundException("User with ID " + userId + " not found");
+        }
 
-    public void createUser(User user) {
-        LOGGER.info("Persisting user: {}", user.getUsername());
+        user.setPassword(password);
         userRepository.persist(user);
     }
 
-    public void delete(User user) {
-        LOGGER.info("Deleting user: {}", user.getId());
-        /*for(GroupMember member: groupMemberRepository.findByUserId(user.getId())){
-            groupMemberRepository.delete(member);
-        }*/
-        userRepository.delete(user);
-        LOGGER.info("User {} deleted successfully", user.getId());
+
+    public User createUser(User user) {
+        LOGGER.info("Persisting user: {}", user.getUsername());
+        userRepository.persist(user);
+        return user;
     }
 
-    public Optional<User> authenticate(String username, String password) {
-        LOGGER.info("Authenticating user: {}", username);
+    public void removeUser(Long userId) throws IllegalArgumentException {
+        LOGGER.info("Removing user: {}", userId);
 
-        User user = userRepository.findByUsername(username);
-        if (user != null && user.getPassword().equals(password)) {
-            LOGGER.info("User {} authenticated successfully", username);
-            return Optional.of(user);
+        User user = userRepository.findById(userId);
+        if (user == null) {
+            LOGGER.warn("User not found: {}", userId);
+            throw new UserNotFoundException("User with ID " + userId + " not found");
         }
 
-        LOGGER.info("User {} authentication failed", username);
-        return Optional.empty();
+        userRepository.deleteById(userId);
+        LOGGER.info("User {} removed successfully", userId);
+    }
+
+    public User authenticate(String username, String password) {
+        LOGGER.info("Authenticating user: {}", username);
+
+        Optional<User> userOptional = userRepository.findByUsername(username);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (user.getPassword().equals(password)) {
+                LOGGER.info("User {} authenticated successfully", username);
+                return user;
+            } else {
+                LOGGER.info("User {} authentication failed: Incorrect password", username);
+                throw new IllegalArgumentException("Incorrect password for user: " + username);
+            }
+        } else {
+            LOGGER.info("User {} authentication failed: User not found", username);
+            throw new UserNotFoundException("User not found: " + username);
+        }
     }
 
 
@@ -100,12 +117,18 @@ public class UserService {
         User user = userRepository.findById(userId);
         if (user == null) {
             LOGGER.error("User with id '{}' not found", userId);
-            return null;
+            throw new UserNotFoundException("User with ID " + userId + " not found");
         }
 
-        List<Group> userGroups = groupRepository.findByCreatorId(userId);
-        LOGGER.info("Found {} group(s) for user with id '{}'", userGroups.size(), userId);
-        return userGroups;
+        Optional<List<Group>> userGroupsOptional = groupRepository.findByCreatorId(userId);
+        if (userGroupsOptional.isPresent()) {
+            List<Group> userGroups = userGroupsOptional.get();
+            LOGGER.info("Found {} group(s) for user with id '{}'", userGroups.size(), userId);
+            return userGroups;
+        } else {
+            LOGGER.error("No groups found for user with id '{}'", userId);
+            throw new GroupNotFoundException("No groups found for user with ID " + userId);
+        }
     }
 
 

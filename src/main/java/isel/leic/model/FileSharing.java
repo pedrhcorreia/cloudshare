@@ -17,8 +17,6 @@ public class FileSharing {
     @Column(name = "shared_to_user_id")
     private Long sharedToUserId;
 
-    @Column(name = "shared_to_group_id")
-    private Long sharedToGroupId;
 
     @Column(name = "filename", nullable = false)
     private String filename;
@@ -27,10 +25,10 @@ public class FileSharing {
     public FileSharing() {
     }
 
-    public FileSharing(Long sharedByUserId, Long sharedToUserId, Long sharedToGroupId, String filename) {
+    public FileSharing(Long sharedByUserId, Long sharedToUserId,  String filename) {
         this.sharedByUserId = sharedByUserId;
         this.sharedToUserId = sharedToUserId;
-        this.sharedToGroupId = sharedToGroupId;
+
         this.filename = filename;
     }
 
@@ -59,13 +57,6 @@ public class FileSharing {
         this.sharedToUserId = sharedToUserId;
     }
 
-    public Long getSharedToGroupId() {
-        return sharedToGroupId;
-    }
-
-    public void setSharedToGroupId(Long sharedToGroupId) {
-        this.sharedToGroupId = sharedToGroupId;
-    }
 
     public String getFilename() {
         return filename;

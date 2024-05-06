@@ -1,4 +1,4 @@
-package isel.leic.model.minio;
+package isel.leic.model.objectstorage;
 
 import software.amazon.awssdk.services.s3.model.S3Object;
 

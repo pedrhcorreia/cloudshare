@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.NoResultException;
 
 import java.util.List;
+import java.util.Optional;
 
 
 @ApplicationScoped
@@ -25,15 +26,18 @@ public class FileSharingRepository implements PanacheRepository<FileSharing> {
     }
 
 
-    public List<FileSharing> findBySharedByUserId(Long sharedByUserId) {
-        return list("sharedByUserId", sharedByUserId);
+    public Optional<List<FileSharing>> findBySharedByUserId(Long sharedByUserId) {
+        List<FileSharing> fileSharings = list("sharedByUserId", sharedByUserId);
+        return Optional.ofNullable(fileSharings.isEmpty() ? null : fileSharings);
     }
 
-    public List<FileSharing> findBySharedToUserId(Long sharedToUserId) {
-        return list("sharedToUserId", sharedToUserId);
+    public Optional<List<FileSharing>> findBySharedToUserId(Long sharedToUserId) {
+        List<FileSharing> fileSharings = list("sharedToUserId", sharedToUserId);
+        return Optional.ofNullable(fileSharings.isEmpty() ? null : fileSharings);
     }
 
-    public List<FileSharing> findBySharedToGroupId(Long sharedToGroupId) {
-        return list("sharedToGroupId", sharedToGroupId);
+    public Optional<List<FileSharing>> findBySharedToGroupId(Long sharedToGroupId) {
+        List<FileSharing> fileSharings = list("sharedToGroupId", sharedToGroupId);
+        return Optional.ofNullable(fileSharings.isEmpty() ? null : fileSharings);
     }
 }

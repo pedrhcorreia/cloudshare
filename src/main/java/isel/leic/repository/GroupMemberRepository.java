@@ -6,16 +6,20 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @ApplicationScoped
 public class GroupMemberRepository implements PanacheRepository<GroupMember> {
-    public List<Long> findUsersByGroupId(Long groupId) {
-        return find("groupId", groupId).stream().map(GroupMember::getUserId).toList();
+    public Optional<List<Long>> findUsersByGroupId(Long groupId) {
+        List<Long> userIds = find("groupId", groupId).stream().map(GroupMember::getUserId).toList();
+        return Optional.ofNullable(userIds.isEmpty() ? null : userIds);
     }
-    public List<GroupMember> findByUserId(Long userId) {
-        return find("userId", userId).list();
+
+    public Optional<List<GroupMember>> findByUserId(Long userId) {
+        List<GroupMember> groupMembers = find("userId", userId).list();
+        return Optional.ofNullable(groupMembers.isEmpty() ? null : groupMembers);
     }
-    @Transactional
+
     public void deleteByGroupIdAndUserId(Long groupId, Long userId) {
         delete("groupId = ?1 and userId = ?2", groupId, userId);
     }

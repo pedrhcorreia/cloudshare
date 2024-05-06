@@ -1,6 +1,9 @@
-package isel.leic;
+package isel.leic.unit;
 
 import io.quarkus.test.junit.QuarkusTest;
+import isel.leic.exceptions.DuplicateResourceException;
+import isel.leic.exceptions.GroupNotFoundException;
+import isel.leic.exceptions.MembersNotFoundException;
 import isel.leic.model.Group;
 import isel.leic.model.User;
 import isel.leic.service.GroupService;
@@ -47,7 +50,7 @@ public class UserAndGroupServiceTest {
     @Order(2)
     public void testCreateGroup(){
         User user = userService.findByUsername("user1");
-        groupService.createGroup(new Group( "TestGroup",user.getId()));
+        groupService.createGroup(user.getId(), "TestGroup");
         List<Group> groups = userService.findUserGroups(user.getId());
         assertEquals(1, groups.size(), "The list should contain exactly one group");
 
@@ -66,7 +69,7 @@ public class UserAndGroupServiceTest {
         Group group = groups.get(0);
         groupService.addUserToGroup(user2.getId(), group.getId() );
 
-        List<User> usersInGroup = groupService.getGroupMember(group.getId());
+        List<User> usersInGroup = groupService.getGroupMembers(group.getId());
         assertEquals(1, usersInGroup.size());
         assertEquals(user2.getId(), usersInGroup.get(0).getId());
     }
@@ -77,14 +80,13 @@ public class UserAndGroupServiceTest {
         User user = userService.findByUsername("user1");
         User user2 = userService.findByUsername("user2");
         Group group = userService.findUserGroups(user.getId()).get(0);
-        // Try adding the user to the group again
-        groupService.addUserToGroup(user2.getId(), group.getId());
 
-
-        List<User> usersFromGroup = groupService.getGroupMember(group.getId());
-        assertEquals(1, usersFromGroup.size()); // Ensure there are no duplicates
-        assertEquals(user2.getId(), usersFromGroup.get(0).getId()); // Ensure the user is still in the group
+        // Assert that adding an existing user to a group throws DuplicateResourceException
+        assertThrows(DuplicateResourceException.class, () -> {
+            groupService.addUserToGroup(user2.getId(), group.getId());
+        });
     }
+
 
     @Test
     @Order(5)
@@ -97,7 +99,7 @@ public class UserAndGroupServiceTest {
 
         groupService.addUserToGroup(user3.getId(), group.getId());
 
-        List<User> usersFromGroup = groupService.getGroupMember(group.getId());
+        List<User> usersFromGroup = groupService.getGroupMembers(group.getId());
         assertEquals(2, usersFromGroup.size());
         assertEquals(usersFromGroup.get(0).getId(), user2.getId());
         assertEquals(usersFromGroup.get(1).getId(), user3.getId());
@@ -112,24 +114,28 @@ public class UserAndGroupServiceTest {
 
         groupService.removeUserFromGroup(user2.getId(), group.getId());
 
-        List<User> usersFromGroup = groupService.getGroupMember(group.getId());
+        List<User> usersFromGroup = groupService.getGroupMembers(group.getId());
         assertEquals(1, usersFromGroup.size());
-        userService.delete(user2);
+        userService.removeUser(user2.getId());
     }
 
     @Test
     @Order(7)
     public void testRemoveGroup() {
         User user = userService.findByUsername("user3");
-        groupService.createGroup(new Group("TestGroup2",user.getId()));
+        groupService.createGroup(user.getId(),"TestGroup2");
 
         User user1 = userService.findByUsername("user1");
         Group group = userService.findUserGroups(user.getId()).get(0);
         groupService.addUserToGroup(user1.getId(),group.getId());
 
         groupService.removeGroup(group.getId());
-        assertTrue(userService.findUserGroups(user.getId()).isEmpty());
-        assertTrue(groupService.getGroupMember(group.getId()).isEmpty());
+        assertThrows(GroupNotFoundException.class, () -> {
+            userService.findUserGroups(user.getId());
+        });
+        assertThrows(GroupNotFoundException.class, () -> {
+            groupService.getGroupMembers(group.getId());
+        });
 
     }
 
@@ -139,17 +145,17 @@ public class UserAndGroupServiceTest {
         User user = userService.findByUsername("user1");
         User user3 = userService.findByUsername("user3");
 
-        userService.delete(user3);
+        userService.removeUser(user3.getId());
 
         // Verify that the user is deleted
         assertNull(userService.findById(user3.getId()));
 
         // Verify that the user is removed from all groups
         List<Group> groups = userService.findUserGroups(user.getId());
-        List<User> usersFromGroup = groupService.getGroupMember(groups.get(0).getId());
-
-        assertEquals(0, usersFromGroup.size());
-        userService.delete(user);
+        assertThrows(MembersNotFoundException.class, () -> {
+            groupService.getGroupMembers(groups.get(0).getId());
+        });
+        userService.removeUser(user.getId());
     }
 
 

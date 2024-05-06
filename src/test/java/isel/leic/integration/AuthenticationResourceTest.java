@@ -1,4 +1,4 @@
-package isel.leic;
+package isel.leic.integration;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -102,12 +102,12 @@ public class AuthenticationResourceTest {
     @Test
     @Order(5)
     public void testDeleteUser_Unauthenticated() {
-        String username = "new-user";
+        Long username = 90L;
 
         given()
                 .contentType(ContentType.JSON)
                 .when()
-                .delete("/auth/" + username)
+                .delete("/user/" + username)
                 .then()
                 .statusCode(401);
     }
@@ -121,27 +121,10 @@ public class AuthenticationResourceTest {
         given()
                 .header("Authorization", "Bearer " + token)
                 .when()
-                .delete("/auth/" + usernameToDelete)
+                .delete("/user/" + usernameToDelete)
                 .then()
-                .statusCode(401)
+                .statusCode(403)
                 .body(equalTo("You are not authorized to delete this user"));
-    }
-
-    @Test
-    @Order(8)
-    public void testDeleteUser_ValidCredentials() {
-        assertNotNull(token);
-
-
-        User user = userService.findByUsername("new-user");
-
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .delete("/auth/" + user.getId())
-                .then()
-                .statusCode(200)
-                .body(equalTo("User " + user.getId() + " deleted successfully."));
     }
 
     @Test
@@ -160,5 +143,49 @@ public class AuthenticationResourceTest {
                 .then()
                 .statusCode(409)
                 .body(equalTo("Username already exists"));
+    }
+
+    @Test
+    @Order(8)
+    public void testDeleteUser_ValidCredentials() {
+        assertNotNull(token);
+
+
+        User user = userService.findByUsername("new-user");
+
+        given()
+                .header("Authorization", "Bearer " + token)
+                .when()
+                .delete("/user/" + user.getId())
+                .then()
+                .statusCode(200)
+                .body(equalTo("User " + user.getId() + " deleted successfully."));
+    }
+
+    @Test
+    @Order(9)
+    public void testRefreshTokenEndpoint_ValidToken() {
+        assertNotNull(token);
+
+        given()
+                .header("Authorization", "Bearer " + token)
+                .contentType(ContentType.JSON) // Set the content type to JSON
+                .when()
+                .post("/auth/refresh-token")
+                .then()
+                .statusCode(200)
+                .body(notNullValue());
+    }
+
+
+    @Test
+    @Order(10)
+    public void testRefreshTokenEndpoint_InvalidToken() {
+        given()
+                .header("Authorization", "Bearer invalid-token")
+                .when()
+                .post("/auth/refresh-token")
+                .then()
+                .statusCode(401);
     }
 }
