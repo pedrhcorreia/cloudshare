@@ -6,6 +6,7 @@ import isel.leic.model.objectstorage.FileObject;
 import isel.leic.model.objectstorage.FormData;
 import isel.leic.service.MinioService;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Path;
 import org.junit.jupiter.api.*;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import java.io.File;
@@ -66,7 +67,7 @@ public class MinioServiceTest {
     @Order(4)
     public void testListObjectsAndDeleteObject() {
         // List objects in the bucket
-        List<FileObject> response = minioService.listObjects("test-bucket");
+        List<FileObject> response = minioService.listObjects("test-bucket", null);
 
         // Find the object named "test-file.txt" and get its object key
         String objectKey = null;

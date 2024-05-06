@@ -6,9 +6,12 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.List;
 
 @ApplicationScoped
@@ -56,11 +59,13 @@ public class MinioService {
         }
     }
 
-    public List<FileObject> listObjects(String bucketName) {
-        LOGGER.info("Listing objects in bucket: {}", bucketName);
+    public List<FileObject> listObjects(String bucketName, String prefix) {
+        LOGGER.info("Listing objects in bucket: {} {}", bucketName, prefix == null? "" : "with prefix '" + prefix+"'");
+
         try {
             ListObjectsRequest request = ListObjectsRequest.builder()
                     .bucket(bucketName)
+                    .prefix(prefix)
                     .build();
             ListObjectsResponse response = minioClient.listObjects(request);
             return response.contents().stream()
@@ -89,6 +94,28 @@ public class MinioService {
         }
     }
 
+    public byte[] downloadObject(String bucketName, String objectKey) {
+        LOGGER.info("Downloading object '{}' from bucket: {}", objectKey, bucketName);
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(objectKey)
+                    .build();
+            ResponseInputStream<GetObjectResponse> responseInputStream = minioClient.getObject(getObjectRequest);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = responseInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            LOGGER.info("Object downloaded successfully: {}", objectKey);
+            return outputStream.toByteArray();
+        } catch (S3Exception | IOException e) {
+            LOGGER.error("Error downloading object {}: {}", objectKey, e.getMessage());
+            return null;
+        }
+    }
+
     public String deleteObject(String bucketName, String objectKey) {
         LOGGER.info("Deleting object '{}' from bucket: {}", objectKey, bucketName);
         try {
@@ -104,4 +131,28 @@ public class MinioService {
             return "Error deleting object: " + e.awsErrorDetails().errorMessage();
         }
     }
+    public String renameObject(String bucketName, String objectKey, String newObjectKey) {
+        LOGGER.info("Renaming object '{}' in bucket '{}' to '{}'", objectKey, bucketName, newObjectKey);
+
+        try {
+            CopyObjectRequest copyRequest = CopyObjectRequest.builder()
+                    .sourceBucket(bucketName)
+                    .sourceKey(objectKey)
+                    .destinationBucket(bucketName)
+                    .destinationKey(newObjectKey)
+                    .build();
+
+            CopyObjectResponse copyResponse = minioClient.copyObject(copyRequest);
+            LOGGER.info("Object renamed successfully: '{}' to '{}'", objectKey, newObjectKey);
+
+            // Delete the old object
+            deleteObject(bucketName, objectKey);
+
+            return copyResponse.copyObjectResult().toString();
+        } catch (S3Exception e) {
+            LOGGER.error("Error renaming object '{}': {}", objectKey, e.awsErrorDetails().errorMessage());
+            return "Error renaming object: " + e.awsErrorDetails().errorMessage();
+        }
+    }
+
 }
