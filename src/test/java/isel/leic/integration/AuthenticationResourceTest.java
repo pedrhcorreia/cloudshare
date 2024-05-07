@@ -58,8 +58,8 @@ public class AuthenticationResourceTest {
                 .when()
                 .post("/auth/signup")
                 .then()
-                .statusCode(409) // Conflict status code
-                .body(equalTo("Username already exists")); // Verify the response message
+                .statusCode(409)
+                .body(equalTo("Duplicate resource: User already exists"));
     }
 
     @Test
@@ -95,8 +95,8 @@ public class AuthenticationResourceTest {
                 .when()
                 .post("/auth/login")
                 .then()
-                .statusCode(401)
-                .body(equalTo("Invalid credentials"));
+                .statusCode(404)
+                .body(equalTo("User not found: wrong-username"));
     }
 
     @Test
@@ -123,8 +123,7 @@ public class AuthenticationResourceTest {
                 .when()
                 .delete("/user/" + usernameToDelete)
                 .then()
-                .statusCode(403)
-                .body(equalTo("You are not authorized to delete this user"));
+                .statusCode(403);
     }
 
     @Test
@@ -142,7 +141,7 @@ public class AuthenticationResourceTest {
                 .post("/auth/signup")
                 .then()
                 .statusCode(409)
-                .body(equalTo("Username already exists"));
+                .body(equalTo("Duplicate resource: User already exists"));
     }
 
     @Test

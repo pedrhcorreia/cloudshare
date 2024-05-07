@@ -2,11 +2,10 @@ package isel.leic.unit;
 
 
 import io.quarkus.test.junit.QuarkusTest;
-import isel.leic.model.objectstorage.FileObject;
-import isel.leic.model.objectstorage.FormData;
+import isel.leic.model.storage.FileObject;
+import isel.leic.model.storage.FormData;
 import isel.leic.service.MinioService;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.Path;
 import org.junit.jupiter.api.*;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import java.io.File;

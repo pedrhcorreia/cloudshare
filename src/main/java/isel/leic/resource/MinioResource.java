@@ -1,8 +1,8 @@
 package isel.leic.resource;
 
 import io.quarkus.security.Authenticated;
-import isel.leic.model.objectstorage.FileObject;
-import isel.leic.model.objectstorage.FormData;
+import isel.leic.model.storage.FileObject;
+import isel.leic.model.storage.FormData;
 import isel.leic.service.MinioService;
 import isel.leic.utils.AuthorizationUtils;
 import jakarta.inject.Inject;

@@ -1,4 +1,4 @@
-package isel.leic.model.objectstorage;
+package isel.leic.model.storage;
 
 import java.io.File;
 import jakarta.ws.rs.core.MediaType;

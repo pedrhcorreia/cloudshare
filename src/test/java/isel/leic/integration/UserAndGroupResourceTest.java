@@ -2,11 +2,9 @@ package isel.leic.integration;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import isel.leic.model.Group;
 import isel.leic.model.User;
-import jakarta.json.Json;
 import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.*;
 import java.util.List;
@@ -211,7 +209,7 @@ public class UserAndGroupResourceTest {
 
         response.then().statusCode(404);
 
-        response.then().body(equalTo("No members found for the group with ID: "+groupId));
+        response.then().body(equalTo("Empty group: No members found for the group with ID: "+groupId));
     }
 
 

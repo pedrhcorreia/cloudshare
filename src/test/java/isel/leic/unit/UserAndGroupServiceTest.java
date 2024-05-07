@@ -1,9 +1,9 @@
 package isel.leic.unit;
 
 import io.quarkus.test.junit.QuarkusTest;
-import isel.leic.exceptions.DuplicateResourceException;
-import isel.leic.exceptions.GroupNotFoundException;
-import isel.leic.exceptions.MembersNotFoundException;
+import isel.leic.exception.DuplicateResourceException;
+import isel.leic.exception.GroupNotFoundException;
+import isel.leic.exception.MembersNotFoundException;
 import isel.leic.model.Group;
 import isel.leic.model.User;
 import isel.leic.service.GroupService;

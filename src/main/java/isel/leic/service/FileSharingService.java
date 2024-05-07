@@ -1,6 +1,6 @@
 package isel.leic.service;
 
-import isel.leic.exceptions.*;
+import isel.leic.exception.*;
 import isel.leic.model.FileSharing;
 import isel.leic.model.Group;
 import isel.leic.model.User;
@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 @Transactional
@@ -69,7 +68,7 @@ public class FileSharingService {
         List<FileSharing> fileSharings = null;
         if(groupUsersOptional.isEmpty()){
             LOGGER.error("Group with ID: {} has no members", sharedToGroup);
-            throw new EmptyGroupException("Group with ID: "+ sharedToGroup +"has no members");
+            throw new MembersNotFoundException("Group with ID: "+ sharedToGroup +"has no members");
         }else{
             List<User> usersInGroup  = groupUsersOptional.get();
             fileSharings = usersInGroup.stream()

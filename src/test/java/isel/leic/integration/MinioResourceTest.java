@@ -1,21 +1,12 @@
 package isel.leic.integration;
 
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.http.ContentType;
-import io.restassured.response.Response;
-import isel.leic.model.objectstorage.FormData;
 import isel.leic.service.MinioService;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
-import java.io.File;
-
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
 @QuarkusTest

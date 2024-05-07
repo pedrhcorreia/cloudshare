@@ -1,12 +1,10 @@
 package isel.leic.service;
 
-import isel.leic.exceptions.GroupNotFoundException;
-import isel.leic.exceptions.UserNotFoundException;
-import isel.leic.model.FileSharing;
+import isel.leic.exception.DuplicateResourceException;
+import isel.leic.exception.GroupNotFoundException;
+import isel.leic.exception.UserNotFoundException;
 import isel.leic.model.Group;
 import isel.leic.model.User;
-import isel.leic.repository.FileSharingRepository;
-import isel.leic.repository.GroupMemberRepository;
 import isel.leic.repository.GroupRepository;
 import isel.leic.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -52,6 +50,9 @@ public class UserService {
     public List<User> findAll() {
         LOGGER.info("Fetching all users");
         List<User> users = userRepository.listAll();
+        if(users.size() == 0){
+            throw new UserNotFoundException("No users found");
+        }
         LOGGER.info("Fetched {} users", users.size());
         return users;
     }
@@ -73,6 +74,9 @@ public class UserService {
 
     public User createUser(User user) {
         LOGGER.info("Persisting user: {}", user.getUsername());
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            throw new DuplicateResourceException("User already exists");
+        }
         userRepository.persist(user);
         return user;
     }

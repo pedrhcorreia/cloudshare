@@ -1,8 +1,8 @@
 package isel.leic.unit;
 
 import io.quarkus.test.junit.QuarkusTest;
-import isel.leic.exceptions.DuplicateResourceException;
-import isel.leic.exceptions.FileSharingNotFoundException;
+import isel.leic.exception.DuplicateResourceException;
+import isel.leic.exception.FileSharingNotFoundException;
 import isel.leic.model.FileSharing;
 import isel.leic.model.Group;
 import isel.leic.model.User;

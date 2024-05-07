@@ -1,11 +1,9 @@
 package isel.leic.service;
 
-import isel.leic.exceptions.*;
-import isel.leic.model.FileSharing;
+import isel.leic.exception.*;
 import isel.leic.model.Group;
 import isel.leic.model.GroupMember;
 import isel.leic.model.User;
-import isel.leic.repository.FileSharingRepository;
 import isel.leic.repository.GroupMemberRepository;
 import isel.leic.repository.GroupRepository;
 import isel.leic.repository.UserRepository;

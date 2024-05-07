@@ -1,4 +1,4 @@
-package isel.leic.exceptions;
+package isel.leic.exception;
 
 public class FileSharingNotFoundException extends RuntimeException{
 
