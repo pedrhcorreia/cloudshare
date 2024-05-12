@@ -52,16 +52,10 @@ public class AuthenticationResource {
         LOGGER.info("HTTP 200 OK: User authenticated successfully: {}", user.getUsername());
         String token = TokenUtils.generateToken(user.getId(), tokenIssuer, tokenDuration);
         LOGGER.info("Generated token for user: {}", user.getUsername());
-        JsonObject responseJson = Json.createObjectBuilder()
-                .add("user", Json.createObjectBuilder()
-                        .add("id", user.getId())
-                        .add("username", user.getUsername())
-                        .build())
-                .add("token", token)
-                .build();
+
 
         LOGGER.info("HTTP 200 OK: User authenticated successfully: {}", user.getUsername());
-        return Response.ok().entity(responseJson).build();
+        return Response.ok(userAndTokenJson(user,token)).build();
     }
 
 
@@ -80,17 +74,8 @@ public class AuthenticationResource {
         userService.createUser(newUser);
         minioService.createBucket(newUser.getId()+bucket_suffix);
         String token = TokenUtils.generateToken(newUser.getId(), tokenIssuer, tokenDuration);
-        // Create a JSON object containing user information and token
-        JsonObject responseJson = Json.createObjectBuilder()
-                .add("user", Json.createObjectBuilder()
-                        .add("id", newUser.getId())
-                        .add("username", newUser.getUsername())
-                        .build())
-                .add("token", token)
-                .build();
-
         LOGGER.info("HTTP 200 OK: User signed up successfully: {}", newUser.getUsername());
-        return Response.ok().entity(responseJson).build();
+        return Response.ok(userAndTokenJson(newUser,token)).build();
     }
 
     @POST
@@ -113,4 +98,10 @@ public class AuthenticationResource {
     private boolean isValidUsername(String username) {
         return USERNAME_PATTERN.matcher(username).matches();
     }
+
+    private String userAndTokenJson(User user, String token) {
+        return "{ \"token\": \"" + token + "\", \"user\": { \"id\": " + user.getId() + ", \"username\": \"" + user.getUsername() + "\" }}";
+    }
+
+
 }

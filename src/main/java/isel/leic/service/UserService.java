@@ -57,7 +57,7 @@ public class UserService {
         return users;
     }
 
-    public void updatePassword(Long userId, String password) {
+    public User updatePassword(Long userId, String password) {
         if (userId == null || password == null) {
             throw new IllegalArgumentException("User ID and password cannot be null");
         }
@@ -69,6 +69,8 @@ public class UserService {
 
         user.setPassword(password);
         userRepository.persist(user);
+        LOGGER.info("Updated password for user with ID {} ", user.getId());
+        return user;
     }
 
 
@@ -109,7 +111,7 @@ public class UserService {
             }
         } else {
             LOGGER.info("User {} authentication failed: User not found", username);
-            throw new UserNotFoundException("User not found: " + username);
+            throw new UserNotFoundException("User not found- " + username);
         }
     }
 

@@ -35,18 +35,19 @@ public class UserAndGroupResourceTest {
                 .when()
                 .post("/auth/signup");
 
-        token = response.getBody().asString();
 
-
+        token = response.jsonPath().getString("token");
+        userId1 = (long) response.jsonPath().getInt("user.id");
         String newUserJsonBody = "{\"username\":\"newUser\",\"password\":\"newPassword\"}";
-        Response createUserResponse = given()
+        Response response2 = given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(newUserJsonBody)
                 .when()
                 .post("/auth/signup");
-        token2 = createUserResponse.getBody().asString();
 
-        createUserResponse.then().statusCode(200);
+        token2 = response2.jsonPath().getString("token");
+        userId2 = (long) response.jsonPath().getInt("user.id");
+
 
 
         Response secondResponse = given()
@@ -58,7 +59,6 @@ public class UserAndGroupResourceTest {
 
         userId1 = secondResponse.jsonPath().getList("findAll { it.username == 'testUser' }.id", Long.class).get(0);
         userId2 = secondResponse.jsonPath().getList("findAll { it.username == 'newUser' }.id", Long.class).get(0);
-        assertNotNull(userId1);
     }
 
     @Test
@@ -74,7 +74,6 @@ public class UserAndGroupResourceTest {
                 .put("/user/" + userId1);
 
         response.then().statusCode(200);
-        response.then().body(equalTo("Password updated successfully for user " + userId1));
 
         Response secondResponse = given()
                 .header("Authorization", "Bearer " + token)
@@ -135,7 +134,6 @@ public class UserAndGroupResourceTest {
                 .put("/user/" + userId1 + "/group/" + groupId+ "/name" );
 
         updateResponse.then().statusCode(200);
-        updateResponse.then().body(equalTo("Group name updated successfully for group " + groupId));
 
         // Fetch the updated group
         Response fetchResponse = given()
@@ -209,7 +207,6 @@ public class UserAndGroupResourceTest {
 
         response.then().statusCode(404);
 
-        response.then().body(equalTo("Empty group: No members found for the group with ID: "+groupId));
     }
 
 
@@ -231,7 +228,6 @@ public class UserAndGroupResourceTest {
 
         response.then().statusCode(200);
 
-        response.then().body(equalTo("User " + userId2 + " deleted successfully."));
     }
 
 

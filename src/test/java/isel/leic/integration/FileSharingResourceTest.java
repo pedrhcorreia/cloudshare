@@ -2,15 +2,16 @@ package isel.leic.integration;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+
+import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import isel.leic.model.FileSharing;
 import isel.leic.model.Group;
+import jakarta.json.Json;
 import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.*;
 
 import java.util.List;
-
-import static com.google.common.base.Predicates.equalTo;
 import static io.restassured.RestAssured.given;
 
 @QuarkusTest
@@ -41,31 +42,30 @@ public class FileSharingResourceTest {
                 .when()
                 .post("/auth/signup");
 
-        token = response.getBody().asString();
+        token = response.jsonPath().getString("token");
+        user1Id = (long) response.jsonPath().getInt("user.id");
+
 
         //Create second user
-        token2= given()
+        Response response2 = given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"username\":\"newUser\",\"password\":\"newPassword\"}")
                 .when()
-                .post("/auth/signup").getBody().asString();
-        token3=  given()
+                .post("/auth/signup");
+
+        user2Id = (long) response2.jsonPath().getInt("user.id");
+        token2 = response2.jsonPath().getString("token");
+
+        Response response3 =  given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"username\":\"newUser2\",\"password\":\"newPassword2\"}")
                 .when()
-                .post("/auth/signup").getBody().asString();
+                .post("/auth/signup");
 
-        //Obtain IDs of users
-        Response secondResponse = given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user");
+        user3Id = (long) response3.jsonPath().getInt("user.id");
+        token3 = response3.jsonPath().getString("token");
 
-        secondResponse.then().statusCode(200);
 
-        user1Id = secondResponse.jsonPath().getList("findAll { it.username == 'testUser' }.id", Long.class).get(0);
-        user2Id = secondResponse.jsonPath().getList("findAll { it.username == 'newUser' }.id", Long.class).get(0);
-        user3Id = secondResponse.jsonPath().getList("findAll { it.username == 'newUser2' }.id", Long.class).get(0);
 
         String jsonBody = "{\"recipientType\":\"USER\",\"recipientId\":" + user2Id + ",\"filename\":\"" + "example.txt" + "\"}";
 
@@ -178,23 +178,23 @@ public class FileSharingResourceTest {
         Assertions.assertEquals(1,sharedFiles.size());
         Assertions.assertEquals(sharedFiles.get(0).getSharedToUserId(),user3Id);
 
-        Response temp = given()
+        given()
                 .header("Authorization", "Bearer " + token)
                 .when()
                 .delete("/user/" + user1Id)
-                .then().statusCode(200).extract().response();
+                .then().statusCode(200);
 
-        Response temp2 = given()
+        given()
                 .header("Authorization", "Bearer " + token2)
                 .when()
                 .delete("/user/" + user2Id)
-                .then().statusCode(200).extract().response();
+                .then().statusCode(200);
 
-        Response temp3 = given()
+       given()
                 .header("Authorization", "Bearer " + token3)
                 .when()
                 .delete("/user/" + user3Id)
-                .then().statusCode(200).extract().response();
+                .then().statusCode(200);
 
 
 

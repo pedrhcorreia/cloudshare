@@ -54,12 +54,9 @@ public class UserResource {
     ) {
         LOGGER.info("Received update password request for user: {}", id);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        userService.updatePassword(id, newPassword);
+        User updatedUser = userService.updatePassword(id, newPassword);
         LOGGER.info("HTTP 200 OK: Password updated successfully for user: {}", id);
-        JsonObject responseJson = Json.createObjectBuilder()
-                .add("message", "Password updated successfully for user " + id)
-                .build();
-        return Response.ok().entity(responseJson).build();
+        return Response.ok().entity(updatedUser).build();
     }
 
     @DELETE
@@ -74,10 +71,7 @@ public class UserResource {
         userService.removeUser(id);
         minioService.deleteBucket(id + bucket_suffix);
         LOGGER.info("HTTP 200 OK: User {} deleted successfully.", id);
-        JsonObject responseJson = Json.createObjectBuilder()
-                .add("message", "User " + id + " deleted successfully.")
-                .build();
-        return Response.ok().entity(responseJson).build();
+        return Response.ok().build();
     }
 
 

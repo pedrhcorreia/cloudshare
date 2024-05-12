@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class MinioService {
@@ -54,6 +55,24 @@ public class MinioService {
 
     public CompletableFuture<String> deleteBucket(String bucketName) {
         LOGGER.info("Deleting bucket: {}", bucketName);
+        return listObjects(bucketName, null)
+                .thenCompose(objects -> {
+                    if (!objects.isEmpty()) {
+                        return CompletableFuture.allOf(objects.stream()
+                                        .map(object -> deleteObject(bucketName, object.getObjectKey())).toArray(CompletableFuture[]::new))
+                                .thenApply(ignore -> {
+                                    LOGGER.info("All objects deleted successfully from bucket: {}", bucketName);
+                                    return "All objects deleted successfully";
+                                });
+                    } else {
+                        LOGGER.info("No objects found in bucket: {}", bucketName);
+                        return CompletableFuture.completedFuture("No objects found");
+                    }
+                })
+                .thenCompose(ignore -> deleteBucketWithoutObjects(bucketName));
+    }
+
+    private CompletableFuture<String> deleteBucketWithoutObjects(String bucketName) {
         DeleteBucketRequest request = DeleteBucketRequest.builder()
                 .bucket(bucketName)
                 .build();
@@ -63,6 +82,8 @@ public class MinioService {
                     return "Bucket deleted successfully: " + bucketName;
                 });
     }
+
+
 
     public CompletableFuture<List<FileObject>> listObjects(String bucketName, String prefix) {
         LOGGER.info("Listing objects in bucket: {} {}", bucketName, prefix == null ? "" : "with prefix '" + prefix + "'");

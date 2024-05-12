@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Upload File</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/wingcss/0.1.8/wing.min.css"/>
+    <!-- Load AngularJS -->
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+    <script type="text/javascript">
+    var app = angular.module("UploadFileApp", []);
+
+    app.directive('fileOnChange', function() {
+      return {
+        restrict: 'A',
+        link: function (scope, element, attrs) {
+          var onChangeHandler = scope.$eval(attrs.fileOnChange);
+          element.on('change', onChangeHandler);
+          element.on('$destroy', function() {
+            element.off();
+          });
+        }
+      };
+    });
+
+    app.controller("UploadFileController", function ($scope, $http) {
+
+      $scope.form = {
+        userId: "", // Initialize user ID
+        token: "", // Initialize token
+        file: undefined,
+        filename: "",
+        mimetype: ""
+      };
+
+      $scope.fileChanged = function(event) {
+        $scope.form.file = event.target.files[0];
+        $scope.form.filename = event.target.files[0].name;
+        if (event.target.files[0].type) {
+          $scope.form.mimetype = event.target.files[0].type;
+        } else {
+          $scope.form.mimetype = "application/octet-stream";
+        }
+      };
+
+      $scope.uploadFile = function () {
+        var data = new FormData();
+        data.append('file', $scope.form.file);
+        data.append('filename', $scope.form.filename);
+        data.append('mimetype', $scope.form.mimetype);
+
+        var config = {
+          headers: {
+            'Content-Type': undefined,
+            'Authorization': 'Bearer ' + $scope.form.token // Use token from the form field
+          }
+        };
+
+        $http.post('/user/' + $scope.form.userId + '/object', data, config)
+          .then(function(response) {
+            console.log("Upload successful");
+          })
+          .catch(function(error) {
+            console.error("Upload failed", error);
+          });
+      };
+
+    });
+  </script>
+</head>
+<body ng-app="UploadFileApp" ng-controller="UploadFileController">
+
+<div class="container">
+    <h1>Upload File</h1>
+
+    <form>
+        <div class="row">
+            <div class="col-6">
+                <label>User ID:</label>
+                <input type="text" ng-model="form.userId">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-6">
+                <label>Bearer Token:</label>
+                <input type="text" ng-model="form.token">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-6">
+                <label>Select File:</label>
+                <input type="file" name="file" id="fileToUpload" file-on-change="fileChanged">
+            </div>
+        </div>
+        <input type="submit" value="Upload" ng-click="uploadFile()">
+    </form>
+
+</div>
+
+</body>
+</html>

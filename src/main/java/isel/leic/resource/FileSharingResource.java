@@ -98,7 +98,7 @@ public class FileSharingResource {
 
         fileSharingService.unshareFile(fileShareId);
         LOGGER.info("HTTP 200 OK: File share {} deleted successfully.", fileShareId);
-        return Response.ok().entity("File share " + fileShareId + " deleted successfully.").build();
+        return Response.ok().build();
     }
 
     public record ShareRequest(RecipientType recipientType, Long recipientId, String filename) {

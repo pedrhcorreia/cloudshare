@@ -45,12 +45,9 @@ public class MinioResourceTest {
                 .when()
                 .post("/auth/signup");
 
-        token = response.getBody().asString();
-        Response secondResponse = given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user");
-        userId1 = secondResponse.jsonPath().getList("findAll { it.username == 'testUser' }.id", Long.class).get(0);
+        token = response.jsonPath().getString("token");
+        userId1 = (long) response.jsonPath().getInt("user.id");
+
 
         //upload file for the user created
         FormData formData = new FormData();
@@ -147,19 +144,15 @@ public class MinioResourceTest {
     public void testShareFileBetweenUsers() {
         // Create a new user
         String newUserJsonBody = "{\"username\":\"newUser\",\"password\":\"newUserPassword\"}";
-        Response newUserResponse = given()
+        Response response = given()
                 .contentType(ContentType.JSON)
                 .body(newUserJsonBody)
                 .when()
                 .post("/auth/signup");
 
-        // Obtain the new user's ID and token
-        Response secondResponse = given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user");
-        userId2 = secondResponse.jsonPath().getList("findAll { it.username == 'newUser' }.id", Long.class).get(0);
-        token2 = newUserResponse.getBody().asString();
+        token2 = response.jsonPath().getString("token");
+        userId2 = (long) response.jsonPath().getInt("user.id");
+
 
 
 

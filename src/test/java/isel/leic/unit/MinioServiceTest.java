@@ -77,5 +77,6 @@ public class MinioServiceTest {
 
         // Assert that the deletion was successful
         assertTrue(deleteResult.startsWith("Object deleted successfully"), "Object deletion failed");
+        minioService.deleteBucket("test-bucket");
     }
 }

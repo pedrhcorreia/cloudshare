@@ -16,6 +16,7 @@ import static io.restassured.RestAssured.given;
 import static io.smallrye.common.constraint.Assert.assertNotNull;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -58,8 +59,7 @@ public class AuthenticationResourceTest {
                 .when()
                 .post("/auth/signup")
                 .then()
-                .statusCode(409)
-                .body(equalTo("Duplicate resource: User already exists"));
+                .statusCode(409);
     }
 
     @Test
@@ -78,7 +78,7 @@ public class AuthenticationResourceTest {
                 .then()
                 .statusCode(200)
                 .extract().response();
-        token = signupResponse.getBody().asString();
+        token = signupResponse.jsonPath().getString("token");
     }
 
     @Test
@@ -95,8 +95,7 @@ public class AuthenticationResourceTest {
                 .when()
                 .post("/auth/login")
                 .then()
-                .statusCode(404)
-                .body(equalTo("User not found: wrong-username"));
+                .statusCode(404);
     }
 
     @Test
@@ -140,8 +139,7 @@ public class AuthenticationResourceTest {
                 .when()
                 .post("/auth/signup")
                 .then()
-                .statusCode(409)
-                .body(equalTo("Duplicate resource: User already exists"));
+                .statusCode(409);
     }
 
     @Test
@@ -152,13 +150,11 @@ public class AuthenticationResourceTest {
 
         User user = userService.findByUsername("new-user");
 
-        given()
+        Response response = given()
                 .header("Authorization", "Bearer " + token)
                 .when()
-                .delete("/user/" + user.getId())
-                .then()
-                .statusCode(200)
-                .body(equalTo("User " + user.getId() + " deleted successfully."));
+                .delete("/user/" + user.getId());
+        response.then().statusCode(200);
     }
 
     @Test

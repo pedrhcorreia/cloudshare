@@ -58,7 +58,7 @@ public class GroupService {
         return group;
     }
 
-    public void updateGroupName(Long groupId, String newName) {
+    public Group updateGroupName(Long groupId, String newName) {
         if (groupId == null || newName == null) {
             LOGGER.error("Group ID and new name cannot be null");
             throw new IllegalArgumentException("Group ID and new name cannot be null");
@@ -73,6 +73,7 @@ public class GroupService {
         group.setName(newName);
         groupRepository.persist(group);
         LOGGER.info("Group name updated successfully for group with ID {}", groupId);
+        return group;
     }
 
     public void addUserToGroup(Long userId, Long groupId) {
@@ -138,9 +139,9 @@ public class GroupService {
         Optional<List<User>> groupUsersOptional = userRepository.findUsersByGroupId(groupId);
 
         if (groupUsersOptional.isPresent()) {
-            List<User> groupUsersId = groupUsersOptional.get();
-            LOGGER.info("Fetched {} members for group with id '{}'", groupUsersId.size(), groupId);
-            return groupUsersId;
+            List<User> groupUsers = groupUsersOptional.get();
+            LOGGER.info("Fetched {} members for group with id '{}'", groupUsers.size(), groupId);
+            return groupUsers;
         } else {
             LOGGER.warn("No members found for group with id '{}'", groupId);
             throw new MembersNotFoundException("No members found for the group with ID: "+ groupId);

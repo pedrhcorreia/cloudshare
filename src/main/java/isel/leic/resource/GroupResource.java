@@ -62,9 +62,9 @@ public class GroupResource {
     ){
         LOGGER.info("Received update group name request for group with ID: {}", groupId);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        groupService.updateGroupName(groupId, newName);
+        Group updatedGroup = groupService.updateGroupName(groupId, newName);
         LOGGER.info("HTTP 200 OK: Group name updated successfully for group with ID: {}", groupId);
-        return Response.ok().entity("Group name updated successfully for group " + groupId).build();
+        return Response.ok().entity(updatedGroup).build();
     }
 
     @DELETE
