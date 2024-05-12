@@ -2,7 +2,8 @@ package isel.leic.resource;
 
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.constraint.NotNull;
-import isel.leic.exception.UserNotFoundException;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import isel.leic.model.User;
 import isel.leic.service.MinioService;
 import isel.leic.service.UserService;
@@ -51,7 +52,16 @@ public class AuthenticationResource {
         LOGGER.info("HTTP 200 OK: User authenticated successfully: {}", user.getUsername());
         String token = TokenUtils.generateToken(user.getId(), tokenIssuer, tokenDuration);
         LOGGER.info("Generated token for user: {}", user.getUsername());
-        return Response.ok().entity(token).build();
+        JsonObject responseJson = Json.createObjectBuilder()
+                .add("user", Json.createObjectBuilder()
+                        .add("id", user.getId())
+                        .add("username", user.getUsername())
+                        .build())
+                .add("token", token)
+                .build();
+
+        LOGGER.info("HTTP 200 OK: User authenticated successfully: {}", user.getUsername());
+        return Response.ok().entity(responseJson).build();
     }
 
 
@@ -68,10 +78,19 @@ public class AuthenticationResource {
         }
         User newUser = new User(signupRequest.username, signupRequest.password);
         userService.createUser(newUser);
-        //minioService.createBucket(newUser.getId()+bucket_suffix);
+        minioService.createBucket(newUser.getId()+bucket_suffix);
         String token = TokenUtils.generateToken(newUser.getId(), tokenIssuer, tokenDuration);
+        // Create a JSON object containing user information and token
+        JsonObject responseJson = Json.createObjectBuilder()
+                .add("user", Json.createObjectBuilder()
+                        .add("id", newUser.getId())
+                        .add("username", newUser.getUsername())
+                        .build())
+                .add("token", token)
+                .build();
+
         LOGGER.info("HTTP 200 OK: User signed up successfully: {}", newUser.getUsername());
-        return Response.ok().entity(token).build();
+        return Response.ok().entity(responseJson).build();
     }
 
     @POST
@@ -82,7 +101,7 @@ public class AuthenticationResource {
         LOGGER.info("Received refresh token request for user: {}", userId);
         String newToken = TokenUtils.generateToken(Long.valueOf(userId), tokenIssuer, tokenDuration);
         LOGGER.info("HTTP 200 OK: Token refreshed successfully for user: {}", userId);
-        return Response.ok(newToken).build();
+        return Response.ok(Json.createObjectBuilder().add("token", newToken).build()).build();
     }
 
 

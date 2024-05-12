@@ -3,9 +3,12 @@ package isel.leic.resource;
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.constraint.NotNull;
 import isel.leic.model.User;
+import isel.leic.service.MinioService;
 import isel.leic.service.UserService;
 import isel.leic.utils.AuthorizationUtils;
 import jakarta.inject.Inject;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -24,6 +27,8 @@ public class UserResource {
 
     @Inject
     UserService userService;
+    @Inject
+    MinioService minioService;
 
     @ConfigProperty(name = "user.bucket.suffix")
     String bucket_suffix;
@@ -51,7 +56,10 @@ public class UserResource {
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
         userService.updatePassword(id, newPassword);
         LOGGER.info("HTTP 200 OK: Password updated successfully for user: {}", id);
-        return Response.ok().entity("Password updated successfully for user " + id).build();
+        JsonObject responseJson = Json.createObjectBuilder()
+                .add("message", "Password updated successfully for user " + id)
+                .build();
+        return Response.ok().entity(responseJson).build();
     }
 
     @DELETE
@@ -64,10 +72,12 @@ public class UserResource {
         LOGGER.info("Received delete request for user: {}", id);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
         userService.removeUser(id);
-        //minioService.deleteBucket(id + bucket_suffix);
-        //TODO check for errors in the minioService
+        minioService.deleteBucket(id + bucket_suffix);
         LOGGER.info("HTTP 200 OK: User {} deleted successfully.", id);
-        return Response.ok().entity("User " + id + " deleted successfully.").build();
+        JsonObject responseJson = Json.createObjectBuilder()
+                .add("message", "User " + id + " deleted successfully.")
+                .build();
+        return Response.ok().entity(responseJson).build();
     }
 
 

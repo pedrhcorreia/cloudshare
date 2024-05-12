@@ -130,4 +130,20 @@ public class FileSharingService {
             throw new FileSharingNotFoundException("No files found shared to user with ID: " + sharedToUserId);
         }
     }
+
+    public boolean isFileSharedWithUser(Long ownerId, Long userId, String filename) {
+        // Retrieve the list of FileSharing entries shared by the user with ownerId
+        List<FileSharing> sharedFiles = getFilesSharedByUser(ownerId);
+
+        // Iterate through the list of shared files to check if the file is shared with the specified user
+        for (FileSharing fileSharing : sharedFiles) {
+            // Check if the filename and userId match
+            if (fileSharing.getFilename().equals(filename) && fileSharing.getSharedToUserId().equals(userId)) {
+                return true; // File is shared with the user
+            }
+        }
+
+        // File is not shared with the user
+        return false;
+    }
 }
