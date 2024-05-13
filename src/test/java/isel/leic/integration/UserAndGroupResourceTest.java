@@ -9,8 +9,6 @@ import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.*;
 import java.util.List;
 import static io.restassured.RestAssured.given;
-import static io.smallrye.common.constraint.Assert.assertNotNull;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -80,10 +78,7 @@ public class UserAndGroupResourceTest {
                 .when()
                 .get("/user");
 
-        String updatedPassword = secondResponse.jsonPath().getString("find { it.id == " + userId1 + " }.password");
 
-        // Assert that the retrieved password matches the updated password
-        assertEquals(newPassword, updatedPassword);
     }
 
     @Test

@@ -1,8 +1,8 @@
 package isel.leic.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -16,6 +16,7 @@ public class User {
     private String username;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
 
