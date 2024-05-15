@@ -1,6 +1,7 @@
 package isel.leic.exception.mapper;
 
 
+import io.vertx.codegen.doc.Token;
 import isel.leic.exception.*;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.core.Response;
@@ -50,7 +51,12 @@ public class ExceptionMapper {
     public RestResponse<String> mapException(Exception e) {
         LOGGER.error("Internal server error: {}", e.getMessage(), e);
         return RestResponse.status(Response.Status.INTERNAL_SERVER_ERROR, buildErrorMessage("Internal server error: " + e.getMessage()));
+    }
 
+    @ServerExceptionMapper
+    public RestResponse<String> tokenException(TokenException e) {
+        LOGGER.error("Internal server error: {}", e.getMessage(), e);
+        return RestResponse.status(Response.Status.INTERNAL_SERVER_ERROR, buildErrorMessage("Internal server error: " + e.getMessage()));
     }
 
     @ServerExceptionMapper

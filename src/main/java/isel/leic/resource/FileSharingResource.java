@@ -2,7 +2,6 @@ package isel.leic.resource;
 
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.constraint.NotNull;
-import isel.leic.exception.*;
 import isel.leic.model.FileSharing;
 import isel.leic.service.FileSharingService;
 import isel.leic.utils.AuthorizationUtils;

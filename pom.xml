@@ -74,6 +74,11 @@
       <artifactId>quarkus-arc</artifactId>
     </dependency>
     <dependency>
+      <groupId>de.svenkubiak</groupId>
+      <artifactId>jBCrypt</artifactId>
+      <version>0.4.1</version>
+    </dependency>
+    <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest-jackson</artifactId>
     </dependency>

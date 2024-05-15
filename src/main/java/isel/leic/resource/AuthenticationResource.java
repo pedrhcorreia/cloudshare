@@ -3,7 +3,6 @@ package isel.leic.resource;
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.constraint.NotNull;
 import jakarta.json.Json;
-import jakarta.json.JsonObject;
 import isel.leic.model.User;
 import isel.leic.service.MinioService;
 import isel.leic.service.UserService;

@@ -5,26 +5,15 @@ import isel.leic.model.storage.FileObject;
 import isel.leic.model.storage.FormData;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import mutiny.zero.flow.adapters.AdaptersToFlow;
-import org.jboss.resteasy.reactive.RestMulti;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.BytesWrapper;
-import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
-import software.amazon.awssdk.core.async.SdkPublisher;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class MinioService {
@@ -154,5 +143,30 @@ public class MinioService {
                     return "Object renamed successfully";
                 }));
     }
+
+    public CompletableFuture<Boolean> doesObjectExist(String bucketName, String objectKey) {
+        LOGGER.info("Verifying if object '{}' exists in bucket: {}", objectKey, bucketName);
+        HeadObjectRequest request = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(objectKey)
+                .build();
+        return minioClient.headObject(request)
+                .thenApply(response -> {
+                    LOGGER.info("Object '{}' exists in bucket: {}", objectKey, bucketName);
+                    return true;
+                })
+                .exceptionally(throwable -> {
+                    if (throwable instanceof NoSuchKeyException) {
+                        LOGGER.info("Object '{}' does not exist in bucket: {}", objectKey, bucketName);
+                        return false;
+                    } else {
+                        LOGGER.error("Error verifying if object '{}' exists in bucket '{}': {}", objectKey, bucketName, throwable.getMessage());
+                        throw new RuntimeException("Error verifying if object exists", throwable);
+                    }
+                });
+    }
+
+
+
 
 }

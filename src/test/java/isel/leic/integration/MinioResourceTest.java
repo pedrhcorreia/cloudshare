@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 
 import static io.restassured.RestAssured.given;
+import static io.smallrye.common.constraint.Assert.assertNotNull;
 import static io.smallrye.common.constraint.Assert.assertTrue;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -33,6 +34,9 @@ public class MinioResourceTest {
     private static Long userId2;
 
     private static byte[] fileArr;
+
+    private static String anonymousToken;
+
 
     @Test
     @Order(1)
@@ -70,6 +74,23 @@ public class MinioResourceTest {
 
     @Test
     @Order(2)
+    public void testGenerateAnonymousLink() {
+        // Generate an anonymous access link for the uploaded file
+        Response response = given()
+                .header("Authorization", "Bearer " + token)
+                .contentType(ContentType.JSON)
+                .body("{\"expiration\": 3600}") // Expiration time in seconds
+                .when()
+                .post("/user/" + userId1 + "/object/test-file.txt/anonymous")
+                .then()
+                .statusCode(200)
+                .extract()
+                .response();
+
+        anonymousToken = response.jsonPath().getString("token");
+    }
+    @Test
+    @Order(3)
     public void testDownloadFile_ValidObjectId() {
         // Assuming a valid object key is available for testing
         String objectKey = "test-file.txt";
@@ -101,7 +122,57 @@ public class MinioResourceTest {
     }
 
     @Test
-    @Order(3)
+    @Order(4)
+    public void testGetFileInfoFromAnonymousLink() {
+        // Get file information using the anonymous access token
+        Response response = given()
+                .queryParam("token", anonymousToken)
+                .expect()
+                .statusCode(200)
+                .contentType(MediaType.APPLICATION_JSON)
+                .when()
+                .get("anonymous/info");
+
+        // Verify JSON response properties
+        response.then()
+                .assertThat()
+                .body("fileName", equalTo("test-file.txt"))
+                .body("userId", equalTo(userId1.intValue())) // Assuming userId is an int
+                .body("username", notNullValue());
+    }
+
+    @Test
+    @Order(5)
+    public void testDownloadFileFromAnonymousLink() {
+        // Download the file using the anonymous access token
+        Response response = given()
+                .queryParam("token", anonymousToken)
+                .expect()
+                .statusCode(200)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(notNullValue())
+                .when()
+                .get("anonymous/download");
+
+
+        // Assert that the file content is not empty
+        byte[] downloadedFileContent = response.getBody().asByteArray();
+        assertNotNull(downloadedFileContent);
+
+        // Load the content of the original file for comparison
+        byte[] originalFileContent = null;
+        try {
+            originalFileContent = Files.readAllBytes(Paths.get("src/main/resources/test-file.txt"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Compare the content of the downloaded file with the original file content
+        assertArrayEquals(originalFileContent, downloadedFileContent);
+    }
+
+    @Test
+    @Order(6)
     public void testRenameFile() {
         // Assuming a valid object key and new name are available for testing
         String objectKey = "test-file.txt";
@@ -140,7 +211,7 @@ public class MinioResourceTest {
     }
 
     @Test
-    @Order(4)
+    @Order(7)
     public void testShareFileBetweenUsers() {
         // Create a new user
         String newUserJsonBody = "{\"username\":\"newUser\",\"password\":\"newUserPassword\"}";
@@ -182,7 +253,7 @@ public class MinioResourceTest {
     }
 
     @Test
-    @Order(5)
+    @Order(8)
     public void testDeleteObjectAndUser() {
         // Assuming a valid object key is available for testing
         String objectKey = "new-test-file.txt";

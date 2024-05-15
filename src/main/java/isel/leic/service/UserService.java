@@ -7,6 +7,7 @@ import isel.leic.model.Group;
 import isel.leic.model.User;
 import isel.leic.repository.GroupRepository;
 import isel.leic.repository.UserRepository;
+import isel.leic.utils.AuthorizationUtils;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -67,7 +68,7 @@ public class UserService {
             throw new UserNotFoundException("User with ID " + userId + " not found");
         }
 
-        user.setPassword(password);
+        user.setPassword(AuthorizationUtils.encodePassword(password));
         userRepository.persist(user);
         LOGGER.info("Updated password for user with ID {} ", user.getId());
         return user;
@@ -76,6 +77,7 @@ public class UserService {
 
     public User createUser(User user) {
         LOGGER.info("Persisting user: {}", user.getUsername());
+        user.setPassword(AuthorizationUtils.encodePassword(user.getPassword()));
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             throw new DuplicateResourceException("User already exists");
         }
@@ -102,7 +104,7 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            if (user.getPassword().equals(password)) {
+            if (AuthorizationUtils.verifyPassword(password,user.getPassword())) {
                 LOGGER.info("User {} authenticated successfully", username);
                 return user;
             } else {

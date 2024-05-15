@@ -6,6 +6,7 @@ import isel.leic.model.storage.FileObject;
 import isel.leic.model.storage.FormData;
 import isel.leic.service.FileSharingService;
 import isel.leic.service.MinioService;
+import isel.leic.utils.AnonymousAccessUtils;
 import isel.leic.utils.AuthorizationUtils;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -14,10 +15,12 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Path("/user/{id}/object")
@@ -99,12 +102,13 @@ public class MinioResource {
     @Produces(MediaType.APPLICATION_JSON)
     public List<FileObject> listFiles(
             @PathParam("id") @NotNull Long id,
+            @QueryParam("suffix") String suffix,
             @Context SecurityContext securityContext
     ) {
         LOGGER.info("Received request to list files for user with ID: {}", id);
         authorize(id, securityContext);
         String bucketName = id + bucket_suffix;
-        CompletableFuture<List<FileObject>> files = minioService.listObjects(bucketName, null);
+        CompletableFuture<List<FileObject>> files = minioService.listObjects(bucketName, suffix);
         if (files != null) {
             LOGGER.info("Files listed successfully for user with ID: {}", id);
             return files.join();
@@ -157,12 +161,31 @@ public class MinioResource {
         }
     }
 
-    // Utility method to authorize user
+    @POST
+    @Path("/{objectKey}/anonymous")
+    @Authenticated
+    public Response getAnonymousLink(
+            @PathParam("id") @NotNull Long userId,
+            @PathParam("objectKey") @NotNull String objectKey,
+            @Context SecurityContext securityContext,
+            @RequestBody @NotNull Map<String, Long> requestBody
+    ) {
+        LOGGER.info("Received request to generate anonymous access link for file '{}' for user with ID: {}", objectKey, userId);
+        authorize(userId, securityContext);
+        Long expirationTime = System.currentTimeMillis() + requestBody.get("expiration");
+        String token = AnonymousAccessUtils.encodeToken(expirationTime,userId,objectKey);
+
+        String jsonResponse = String.format("{\"token\": \"%s\"}", token);
+
+
+        return Response.ok().entity(jsonResponse).build();
+    }
+
+
     private void authorize(Long userId, SecurityContext securityContext) {
         AuthorizationUtils.checkAuthorization(userId, securityContext.getUserPrincipal().getName());
     }
 
-    // Utility method to extract userId from SecurityContext
     private String getUserId(SecurityContext securityContext) {
         return securityContext.getUserPrincipal().getName();
     }

@@ -7,8 +7,6 @@ import isel.leic.service.MinioService;
 import isel.leic.service.UserService;
 import isel.leic.utils.AuthorizationUtils;
 import jakarta.inject.Inject;
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
