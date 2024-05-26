@@ -1,7 +1,6 @@
 package isel.leic.exception.mapper;
 
 
-import io.vertx.codegen.doc.Token;
 import isel.leic.exception.*;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.core.Response;

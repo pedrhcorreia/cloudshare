@@ -18,6 +18,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 
@@ -71,10 +72,12 @@ public class AuthenticationResource {
         }
         User newUser = new User(signupRequest.username, signupRequest.password);
         userService.createUser(newUser);
-        minioService.createBucket(newUser.getId()+bucket_suffix);
+        CompletableFuture<String> createBucketFuture = minioService.createBucket(newUser.getId() + bucket_suffix);
+        // Await the completion of bucket creation
+        createBucketFuture.join(); // This will block until the bucket creation completes
         String token = TokenUtils.generateToken(newUser.getId(), tokenIssuer, tokenDuration);
         LOGGER.info("HTTP 200 OK: User signed up successfully: {}", newUser.getUsername());
-        return Response.ok(userAndTokenJson(newUser,token)).build();
+        return Response.ok(userAndTokenJson(newUser, token)).build();
     }
 
     @POST

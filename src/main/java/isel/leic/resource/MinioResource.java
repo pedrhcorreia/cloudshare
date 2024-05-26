@@ -19,6 +19,7 @@ import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -36,10 +37,7 @@ public class MinioResource {
     private static final Logger LOGGER = LoggerFactory.getLogger(MinioResource.class);
 
 
-    @POST
-    @Authenticated
-    @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public Response uploadFile(
+    public CompletableFuture<Response> uploadFile(
             @NotNull FormData formData,
             @PathParam("id") @NotNull Long id,
             @Context SecurityContext securityContext
@@ -48,59 +46,54 @@ public class MinioResource {
         authorize(id, securityContext);
         String userId = getUserId(securityContext);
         String bucketName = userId + bucket_suffix;
-        CompletableFuture<String> uploadFuture = minioService.uploadObject(bucketName, formData);
-        return uploadFuture.thenApply(response -> {
-            if (response.startsWith("Object uploaded successfully")) {
-                LOGGER.info("File uploaded successfully for user with ID: {}", id);
-                return Response.ok().status(Response.Status.CREATED).build();
+
+        // Generate presigned URL for uploading
+        CompletableFuture<URL> presignedUrlFuture = minioService.generatePresignedUploadUrl(bucketName, formData.getFilename(), formData.getMimetype());
+
+        // Construct the response based on the presigned URL
+        return presignedUrlFuture.thenApply(presignedUrl -> {
+            if (presignedUrl != null) {
+                LOGGER.info("Generated presigned URL for upload: {}", presignedUrl);
+                // Construct the response with the presigned URL
+                return Response.ok(presignedUrl.toString()).build();
             } else {
-                LOGGER.error("Error uploading file for user with ID: {}. Error: {}", id, response);
-                return Response.serverError().entity(response).build();
+                LOGGER.error("Error generating presigned URL for upload");
+                // Construct an error response
+                return Response.serverError().entity("Error generating presigned URL for upload").build();
             }
-        }).join();
+        });
     }
 
-    @GET
-    @Path("/{objectKey}")
-    @Authenticated
-    @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    public Response downloadFile(
+
+    public CompletableFuture<Response> downloadFile(
             @PathParam("id") @NotNull Long id,
             @PathParam("objectKey") @NotNull String objectKey,
             @Context SecurityContext securityContext
     ) {
         LOGGER.info("Received request to download file '{}' for user with ID: {}", objectKey, id);
-        try {
-            authorize(id, securityContext);
-        } catch (ForbiddenException e) {
-            //check if file was shared with this user
-            String userId = getUserId(securityContext);
-            if (!fileSharingService.isFileSharedWithUser(id, Long.valueOf(userId), objectKey)) {
-                //File is not shared with this user
-                String errorMessage = String.format("User '%s' is not authorized to access this resource", id);
-                LOGGER.error(errorMessage);
-                throw new ForbiddenException(errorMessage);
-            } else {
-                LOGGER.info("User '{}' is accessing file '{}' shared by user '{}'", userId, objectKey, id);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                authorize(id, securityContext);
+            } catch (ForbiddenException e) {
+                // Check if file was shared with this user
+                String userId = getUserId(securityContext);
+                if (!fileSharingService.isFileSharedWithUser(id, Long.valueOf(userId), objectKey)) {
+                    // File is not shared with this user
+                    String errorMessage = String.format("User '%s' is not authorized to access this resource", id);
+                    LOGGER.error(errorMessage);
+                    throw new ForbiddenException(errorMessage);
+                } else {
+                    LOGGER.info("User '{}' is accessing file '{}' shared by user '{}'", userId, objectKey, id);
+                }
             }
-        }
-        String bucketName = id + bucket_suffix; // Assuming bucket_suffix is properly configured
-        CompletableFuture<byte[]> objectBytes = minioService.downloadObject(bucketName, objectKey);
-        if (objectBytes.join() != null) {
-            LOGGER.info("File '{}' downloaded successfully for user with ID: {}", objectKey, id);
-            Response.ResponseBuilder response = Response.ok(objectBytes.join());
-            response.header("Content-Disposition", "attachment;filename=" + objectKey);
-            return response.build();
-        } else {
-            LOGGER.error("File '{}' not found for user with ID: {}", objectKey, id);
-            return Response.status(Response.Status.NOT_FOUND).entity("File not found").build();
-        }
+            String bucketName = id + bucket_suffix;
+            return minioService.generatePresignedDownloadUrl(bucketName, objectKey)
+                    .thenApply(presignedUrl -> Response.ok(presignedUrl.toString()).build())
+                    .join(); // Since we are already inside a supplyAsync, it's safe to use join
+        });
     }
 
-    @GET
-    @Authenticated
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<FileObject> listFiles(
+    public CompletableFuture<List<FileObject>> listFiles(
             @PathParam("id") @NotNull Long id,
             @QueryParam("suffix") String suffix,
             @Context SecurityContext securityContext
@@ -108,41 +101,30 @@ public class MinioResource {
         LOGGER.info("Received request to list files for user with ID: {}", id);
         authorize(id, securityContext);
         String bucketName = id + bucket_suffix;
-        CompletableFuture<List<FileObject>> files = minioService.listObjects(bucketName, suffix);
-        if (files != null) {
-            LOGGER.info("Files listed successfully for user with ID: {}", id);
-            return files.join();
-        } else {
-            LOGGER.error("Error listing files for user with ID: {}", id);
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
-        }
+        return minioService.listObjects(bucketName, suffix);
     }
 
-    @DELETE
-    @Path("/{objectKey}")
-    @Authenticated
-    public Response deleteFile(
+    public CompletableFuture<Response> deleteFile(
             @PathParam("id") @NotNull Long userId,
             @PathParam("objectKey") @NotNull String objectKey,
             @Context SecurityContext securityContext
     ) {
         LOGGER.info("Received request to delete file '{}' for user with ID: {}", objectKey, userId);
         authorize(userId, securityContext);
-        String bucketName = userId + bucket_suffix; // Assuming bucket_suffix is properly configured
-        CompletableFuture<String> response = minioService.deleteObject(bucketName, objectKey);
-        if (response.join().startsWith("Object deleted successfully")) {
-            LOGGER.info("File '{}' deleted successfully for user with ID: {}", objectKey, userId);
-            return Response.ok().build();
-        } else {
-            LOGGER.error("Error deleting file '{}' for user with ID: {}. Error: {}", objectKey, userId, response);
-            return Response.serverError().entity(response).build();
-        }
+        String bucketName = userId + bucket_suffix;
+        return minioService.deleteObject(bucketName, objectKey)
+                .thenApply(response -> {
+                    if (response.startsWith("Object deleted successfully")) {
+                        LOGGER.info("File '{}' deleted successfully for user with ID: {}", objectKey, userId);
+                        return Response.ok().build();
+                    } else {
+                        LOGGER.error("Error deleting file '{}' for user with ID: {}. Error: {}", objectKey, userId, response);
+                        return Response.serverError().entity(response).build();
+                    }
+                });
     }
 
-    @PUT
-    @Path("/{objectKey}")
-    @Authenticated
-    public Response renameFile(
+    public CompletableFuture<Response> renameFile(
             @PathParam("id") @NotNull Long userId,
             @PathParam("objectKey") @NotNull String objectKey,
             @QueryParam("newName") @NotNull String newName,
@@ -150,21 +132,20 @@ public class MinioResource {
     ) {
         LOGGER.info("Received request to rename file '{}' for user with ID: {}", objectKey, userId);
         authorize(userId, securityContext);
-        String bucketName = userId + bucket_suffix; // Assuming bucket_suffix is properly configured
-        CompletableFuture<String> response = minioService.renameObject(bucketName, objectKey, newName);
-        if (response.join().startsWith("Object renamed successfully")) {
-            LOGGER.info("File '{}' renamed successfully for user with ID: {}", objectKey, userId);
-            return Response.ok().build();
-        } else {
-            LOGGER.error("Error renaming file '{}' for user with ID: {}. Error: {}", objectKey, userId, response);
-            return Response.serverError().entity(response).build();
-        }
+        String bucketName = userId + bucket_suffix;
+        return minioService.renameObject(bucketName, objectKey, newName)
+                .thenApply(response -> {
+                    if (response.startsWith("Object renamed successfully")) {
+                        LOGGER.info("File '{}' renamed successfully for user with ID: {}", objectKey, userId);
+                        return Response.ok().build();
+                    } else {
+                        LOGGER.error("Error renaming file '{}' for user with ID: {}. Error: {}", objectKey, userId, response);
+                        return Response.serverError().entity(response).build();
+                    }
+                });
     }
 
-    @POST
-    @Path("/{objectKey}/anonymous")
-    @Authenticated
-    public Response getAnonymousLink(
+    public CompletableFuture<Response> getAnonymousLink(
             @PathParam("id") @NotNull Long userId,
             @PathParam("objectKey") @NotNull String objectKey,
             @Context SecurityContext securityContext,
@@ -173,12 +154,11 @@ public class MinioResource {
         LOGGER.info("Received request to generate anonymous access link for file '{}' for user with ID: {}", objectKey, userId);
         authorize(userId, securityContext);
         Long expirationTime = System.currentTimeMillis() + requestBody.get("expiration");
-        String token = AnonymousAccessUtils.encodeToken(expirationTime,userId,objectKey);
+        String token = AnonymousAccessUtils.encodeToken(expirationTime, userId, objectKey);
 
         String jsonResponse = String.format("{\"token\": \"%s\"}", token);
 
-
-        return Response.ok().entity(jsonResponse).build();
+        return CompletableFuture.completedFuture(Response.ok().entity(jsonResponse).build());
     }
 
 

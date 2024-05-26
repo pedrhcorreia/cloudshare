@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Path("/user")
 @Produces(MediaType.APPLICATION_JSON)
@@ -67,10 +68,13 @@ public class UserResource {
         LOGGER.info("Received delete request for user: {}", id);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
         userService.removeUser(id);
-        minioService.deleteBucket(id + bucket_suffix);
+        CompletableFuture<String> deleteBucketFuture = minioService.deleteBucket(id + bucket_suffix);
+        // Await the completion of bucket deletion
+        deleteBucketFuture.join(); // This will block until the bucket deletion completes
         LOGGER.info("HTTP 200 OK: User {} deleted successfully.", id);
         return Response.ok().build();
     }
+
 
 
 

@@ -12,6 +12,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,9 +52,6 @@ public class UserService {
     public List<User> findAll() {
         LOGGER.info("Fetching all users");
         List<User> users = userRepository.listAll();
-        if(users.size() == 0){
-            throw new UserNotFoundException("No users found");
-        }
         LOGGER.info("Fetched {} users", users.size());
         return users;
     }
@@ -129,15 +127,17 @@ public class UserService {
         }
 
         Optional<List<Group>> userGroupsOptional = groupRepository.findByCreatorId(userId);
-        if (userGroupsOptional.isPresent()) {
-            List<Group> userGroups = userGroupsOptional.get();
-            LOGGER.info("Found {} group(s) for user with id '{}'", userGroups.size(), userId);
-            return userGroups;
+        List<Group> userGroups = userGroupsOptional.orElse(Collections.emptyList());
+
+        if (userGroups.isEmpty()) {
+            LOGGER.info("No groups found for user with id '{}'", userId);
         } else {
-            LOGGER.error("No groups found for user with id '{}'", userId);
-            throw new GroupNotFoundException("No groups found for user with ID " + userId);
+            LOGGER.info("Found {} group(s) for user with id '{}'", userGroups.size(), userId);
         }
+
+        return userGroups;
     }
+
 
 
 }

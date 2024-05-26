@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -127,7 +128,7 @@ public class GroupService {
         return false;
     }
 
-    public List<User> getGroupMembers(Long groupId){
+    public List<User> getGroupMembers(Long groupId) {
         LOGGER.info("Fetching members of group with id '{}'", groupId);
 
         Group group = groupRepository.findById(groupId);
@@ -137,28 +138,29 @@ public class GroupService {
         }
 
         Optional<List<User>> groupUsersOptional = userRepository.findUsersByGroupId(groupId);
+        List<User> groupUsers = groupUsersOptional.orElse(Collections.emptyList());
 
-        if (groupUsersOptional.isPresent()) {
-            List<User> groupUsers = groupUsersOptional.get();
-            LOGGER.info("Fetched {} members for group with id '{}'", groupUsers.size(), groupId);
-            return groupUsers;
-        } else {
+        if (groupUsers.isEmpty()) {
             LOGGER.warn("No members found for group with id '{}'", groupId);
-            throw new MembersNotFoundException("No members found for the group with ID: "+ groupId);
+        } else {
+            LOGGER.info("Fetched {} members for group with id '{}'", groupUsers.size(), groupId);
         }
-    }
 
+        return groupUsers;
+    }
 
     public List<Group> getGroupsOfUser(Long userId) {
         LOGGER.info("Fetching groups of user with id '{}'", userId);
 
         Optional<List<Group>> userGroupsOptional = groupRepository.findByCreatorId(userId);
-        List<Group> userGroups = userGroupsOptional.orElseThrow(() -> {
-            LOGGER.error("No groups found for user with ID '{}'", userId);
-            return new GroupNotFoundException("No groups found for user with ID '" + userId + "'");
-        });
+        List<Group> userGroups = userGroupsOptional.orElse(Collections.emptyList());
 
-        LOGGER.info("Fetched {} groups for user with id '{}'", userGroups.size(), userId);
+        if (userGroups.isEmpty()) {
+            LOGGER.warn("No groups found for user with ID '{}'", userId);
+        } else {
+            LOGGER.info("Fetched {} groups for user with id '{}'", userGroups.size(), userId);
+        }
+
         return userGroups;
     }
 

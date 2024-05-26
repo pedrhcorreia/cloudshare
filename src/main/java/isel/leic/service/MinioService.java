@@ -1,6 +1,6 @@
 package isel.leic.service;
 
-import io.smallrye.mutiny.Multi;
+
 import isel.leic.model.storage.FileObject;
 import isel.leic.model.storage.FormData;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,6 +12,12 @@ import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+
+import java.net.URL;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -22,6 +28,9 @@ public class MinioService {
 
     @Inject
     S3AsyncClient minioClient;
+
+    @Inject
+    S3Presigner presigner;
 
     public CompletableFuture<List<Bucket>> listBuckets() {
         LOGGER.info("Listing buckets");
@@ -100,6 +109,39 @@ public class MinioService {
                     return "Object uploaded successfully: " + formData.getFilename();
                 });
     }
+
+    public CompletableFuture<URL> generatePresignedUploadUrl(String bucketName, String objectKey, String contentType) {
+        PutObjectRequest objectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(objectKey)
+                .contentType(contentType)
+                .build();
+
+        return CompletableFuture.supplyAsync(() -> {
+            PresignedPutObjectRequest presignedRequest = presigner.presignPutObject(r -> r
+                    .signatureDuration(Duration.ofMinutes(15))
+                    .putObjectRequest(objectRequest));
+
+            return presignedRequest.url();
+        });
+    }
+
+    public CompletableFuture<URL> generatePresignedDownloadUrl(String bucketName, String objectKey) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(objectKey)
+                .build();
+
+        return CompletableFuture.supplyAsync(() -> {
+            PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(r -> r
+                    .signatureDuration(Duration.ofMinutes(15))
+                    .getObjectRequest(getObjectRequest));
+
+            return presignedRequest.url();
+        });
+    }
+
+
 
     public CompletableFuture<byte[]> downloadObject(String bucketName, String objectKey) {
         LOGGER.info("Downloading object '{}' from bucket: {}", objectKey, bucketName);

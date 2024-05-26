@@ -13,6 +13,8 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,29 +58,31 @@ public class FileSharingService {
         return fileSharing;
     }
 
-    public List<FileSharing> shareFileToGroup(Long sharedByUsername, Long sharedToGroup, String filename) {
-        LOGGER.info("Sharing file {} from user {} to group {}", filename, sharedByUsername, sharedToGroup);
+    public List<FileSharing> shareFileToGroup(Long sharedByUserId, Long sharedToGroupId, String filename) {
+        LOGGER.info("Sharing file {} from user {} to group {}", filename, sharedByUserId, sharedToGroupId);
 
-        Group sharedToGroupObj = groupRepository.findById(sharedToGroup);
-        if (sharedToGroupObj == null) {
-            LOGGER.error("Group with ID: {} not found", sharedToGroup);
-            throw new GroupNotFoundException("Group with ID: " + sharedToGroup + " not found");
-        }
-        Optional<List<User>> groupUsersOptional = userRepository.findUsersByGroupId(sharedToGroup);
-        List<FileSharing> fileSharings = null;
-        if(groupUsersOptional.isEmpty()){
-            LOGGER.error("Group with ID: {} has no members", sharedToGroup);
-            throw new MembersNotFoundException("Group with ID: "+ sharedToGroup +"has no members");
-        }else{
-            List<User> usersInGroup  = groupUsersOptional.get();
-            fileSharings = usersInGroup.stream()
-                    .map(user -> shareFileToUser(sharedByUsername, user.getId(), filename))
-                    .toList();
+        Group sharedToGroup = groupRepository.findById(sharedToGroupId);
+        if (sharedToGroup == null) {
+            LOGGER.error("Group with ID: {} not found", sharedToGroupId);
+            throw new GroupNotFoundException("Group with ID: " + sharedToGroupId + " not found");
         }
 
-        LOGGER.info("File '{}' shared successfully from user {} to group {}", filename, sharedByUsername, sharedToGroup);
+        Optional<List<User>> groupUsersOptional = userRepository.findUsersByGroupId(sharedToGroupId);
+        if (groupUsersOptional.isEmpty()) {
+            LOGGER.error("Group with ID: {} has no members", sharedToGroupId);
+            throw new MembersNotFoundException("Group with ID: " + sharedToGroupId + " has no members");
+        }
+
+        List<User> usersInGroup = groupUsersOptional.get();
+        List<FileSharing> fileSharings = new ArrayList<>();
+        for (User user : usersInGroup) {
+            FileSharing fileSharing = new FileSharing(sharedByUserId, user.getId(), filename);
+            fileSharings.add(fileSharing);
+        }
+
+        fileSharingRepository.persist(fileSharings);
+        LOGGER.info("File '{}' shared successfully from user {} to group {}", filename, sharedByUserId, sharedToGroupId);
         return fileSharings;
-        //This method is an abomination please look at it later TODO
     }
 
 
@@ -107,11 +111,7 @@ public class FileSharingService {
         }
 
         Optional<List<FileSharing>> sharedFilesOptional = fileSharingRepository.findBySharedByUserId(userId);
-        if (sharedFilesOptional.isPresent()) {
-            return sharedFilesOptional.get();
-        } else {
-            throw new FileSharingNotFoundException("No files found for user: " + userId);
-        }
+        return sharedFilesOptional.orElse(Collections.emptyList());
     }
 
     public List<FileSharing> getFilesSharedToUser(Long sharedToUserId) {
@@ -124,26 +124,18 @@ public class FileSharingService {
         }
 
         Optional<List<FileSharing>> sharedFilesOptional = fileSharingRepository.findBySharedToUserId(sharedToUserId);
-        if (sharedFilesOptional.isPresent()) {
-            return sharedFilesOptional.get();
-        } else {
-            throw new FileSharingNotFoundException("No files found shared to user with ID: " + sharedToUserId);
-        }
+        return sharedFilesOptional.orElse(Collections.emptyList());
     }
 
-    public boolean isFileSharedWithUser(Long ownerId, Long userId, String filename) {
-        // Retrieve the list of FileSharing entries shared by the user with ownerId
-        List<FileSharing> sharedFiles = getFilesSharedByUser(ownerId);
 
-        // Iterate through the list of shared files to check if the file is shared with the specified user
+    public boolean isFileSharedWithUser(Long ownerId, Long userId, String filename) {
+        List<FileSharing> sharedFiles = getFilesSharedByUser(ownerId);
         for (FileSharing fileSharing : sharedFiles) {
-            // Check if the filename and userId match
             if (fileSharing.getFilename().equals(filename) && fileSharing.getSharedToUserId().equals(userId)) {
-                return true; // File is shared with the user
+                return true;
             }
         }
 
-        // File is not shared with the user
         return false;
     }
 }

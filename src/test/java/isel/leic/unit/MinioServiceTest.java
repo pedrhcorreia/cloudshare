@@ -9,6 +9,7 @@ import org.junit.jupiter.api.*;
 import software.amazon.awssdk.services.s3.model.Bucket;
 
 import java.io.File;
+import java.net.URL;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -49,8 +50,6 @@ public class MinioServiceTest {
         // Upload the test object and wait for completion
         CompletableFuture<String> uploadFuture = minioService.uploadObject("test-bucket", formData);
         String result = uploadFuture.join();
-
-        // Assert the result
         assertTrue(result.startsWith("Object uploaded successfully"), "Object upload failed");
     }
 
