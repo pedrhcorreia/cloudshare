@@ -1,6 +1,7 @@
 package isel.leic.resource;
 
 import io.smallrye.common.constraint.NotNull;
+import io.smallrye.mutiny.Uni;
 import isel.leic.service.MinioService;
 import isel.leic.service.UserService;
 import isel.leic.utils.AnonymousAccessUtils;
@@ -31,7 +32,7 @@ public class AnonymousAccessResource {
     @GET
     @Path("/info")
     @PermitAll
-    public Response getFileInformation(@QueryParam("token") @NotNull String token) {
+    public Uni<Response> getFileInformation(@QueryParam("token") @NotNull String token) {
         LOGGER.info("Received request to get file information for token: {}", token);
 
         // Decode the token and verify integrity
@@ -41,39 +42,43 @@ public class AnonymousAccessResource {
 
         // Extract file information from the decoded token
         String fileName = (String) decodedToken.get("fileName");
-        int userId =(int) decodedToken.get("sharedByUserId");
+        Long userId = ((Number) decodedToken.get("sharedByUserId")).longValue();
 
         LOGGER.info("Retrieving file information for file '{}' shared by user with ID: {}", fileName, userId);
 
-        CompletableFuture<Boolean> fileExists = minioService.doesObjectExist(userId + bucket_suffix, fileName);
-        if (!fileExists.join()) {
-            LOGGER.warn("File '{}' not found in bucket '{}'.", fileName, userId + bucket_suffix);
-            return Response.status(Response.Status.NOT_FOUND).entity("File not found").build();
-        }
+        return Uni.createFrom().completionStage(minioService.doesObjectExist(userId + bucket_suffix, fileName))
+                .flatMap(fileExists -> {
+                    if (!fileExists) {
+                        LOGGER.warn("File '{}' not found in bucket '{}'.", fileName, userId + bucket_suffix);
+                        return Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).entity("File not found").build());
+                    }
 
-        LOGGER.info("File '{}' found in bucket '{}'.", fileName, userId + bucket_suffix);
+                    LOGGER.info("File '{}' found in bucket '{}'.", fileName, userId + bucket_suffix);
 
-        String username = userService.findById((long) userId).getUsername();
+                    return userService.findById(userId)
+                            .map(user -> {
+                                String username = user.getUsername();
 
-        LOGGER.info("Retrieved username '{}' for user with ID: {}", username, userId);
+                                LOGGER.info("Retrieved username '{}' for user with ID: {}", username, userId);
 
-        Map<String, Object> fileInfo = Map.of(
-                "fileName", fileName,
-                "userId", userId,
-                "username", username
-        );
+                                Map<String, Object> fileInfo = Map.of(
+                                        "fileName", fileName,
+                                        "userId", userId,
+                                        "username", username
+                                );
 
-        LOGGER.info("File information retrieved successfully.");
+                                LOGGER.info("File information retrieved successfully.");
 
-        return Response.ok().entity(fileInfo).build();
+                                return Response.ok().entity(fileInfo).build();
+                            });
+                });
     }
 
     @GET
     @Path("/download")
     @PermitAll
-    @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    public Response downloadFile(@QueryParam("token") @NotNull String token) {
-        LOGGER.info("Received request to download file based on token: {}", token);
+    public Uni<Response> downloadFile(@QueryParam("token") @NotNull String token) {
+        LOGGER.info("Received request to generate presigned download URL based on token: {}", token);
 
         // Decode the token and verify integrity
         Map<String, Object> decodedToken = AnonymousAccessUtils.decodeToken(token);
@@ -82,30 +87,26 @@ public class AnonymousAccessResource {
 
         // Extract file information from the decoded token
         String fileName = (String) decodedToken.get("fileName");
-        int userId = (int) decodedToken.get("sharedByUserId");
+        Long userId = ((Number) decodedToken.get("sharedByUserId")).longValue();
 
-        LOGGER.info("Retrieving file '{}' that belongs to user with ID: {}", fileName, userId);
+        LOGGER.info("Retrieving presigned download URL for file '{}' that belongs to user with ID: {}", fileName, userId);
 
         // Check if the file exists
-        CompletableFuture<Boolean> fileExists = minioService.doesObjectExist(userId + bucket_suffix, fileName);
-        if (!fileExists.join()) {
-            LOGGER.warn("File '{}' not found in bucket '{}'.", fileName, userId + bucket_suffix);
-            return Response.status(Response.Status.NOT_FOUND).entity("File not found").build();
-        }
+        return Uni.createFrom().completionStage(minioService.doesObjectExist(userId + bucket_suffix, fileName))
+                .flatMap(fileExists -> {
+                    if (!fileExists) {
+                        LOGGER.warn("File '{}' not found in bucket '{}'.", fileName, userId + bucket_suffix);
+                        return Uni.createFrom().item(Response.status(Response.Status.NOT_FOUND).entity("File not found").build());
+                    }
 
-        LOGGER.info("File '{}' found in bucket '{}'.", fileName, userId + bucket_suffix);
+                    LOGGER.info("File '{}' found in bucket '{}'.", fileName, userId + bucket_suffix);
 
-        // Download the file
-        String bucketName = userId + bucket_suffix;
-        CompletableFuture<byte[]> fileBytes = minioService.downloadObject(bucketName, fileName);
-        if (fileBytes.join() != null) {
-            LOGGER.info("File '{}' belonging to user with ID: {} downloaded anonymously with success.", fileName, userId);
-            Response.ResponseBuilder response = Response.ok(fileBytes.join());
-            response.header("Content-Disposition", "attachment;filename=" + fileName);
-            return response.build();
-        } else {
-            LOGGER.error("Error downloading file '{}' belonging to  user with ID: {} anonymously", fileName, userId);
-            return Response.serverError().entity("Error downloading file").build();
-        }
+                    String bucketName = userId + bucket_suffix;
+                    return Uni.createFrom().completionStage(minioService.generatePresignedDownloadUrl(bucketName, fileName))
+                            .map(presignedUrl -> {
+                                LOGGER.info("Presigned download URL generated successfully for file '{}' belonging to user with ID: {}", fileName, userId);
+                                return Response.ok().entity(presignedUrl).build();
+                            });
+                });
     }
 }

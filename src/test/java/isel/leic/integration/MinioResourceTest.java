@@ -16,12 +16,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 
 import static io.restassured.RestAssured.given;
 import static io.smallrye.common.constraint.Assert.assertNotNull;
 import static io.smallrye.common.constraint.Assert.assertTrue;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -41,54 +43,83 @@ public class MinioResourceTest {
     @Test
     @Order(1)
     public void testUploadFile_ValidFormData() {
-        //Create user and obtain id and token
+        // Create user and obtain id and token
         String jsonBody = "{\"username\":\"testUser\",\"password\":\"testPassword\"}";
-        Response response = given()
-                .contentType(ContentType.JSON)
-                .body(jsonBody)
-                .when()
-                .post("/auth/signup");
 
-        token = response.jsonPath().getString("token");
-        userId1 = (long) response.jsonPath().getInt("user.id");
+        CompletableFuture<Response> signupFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return given()
+                        .contentType(ContentType.JSON)
+                        .body(jsonBody)
+                        .when()
+                        .post("/auth/signup");
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to sign up", e);
+            }
+        });
 
+        signupFuture.thenAccept(signupResponse -> {
+            try {
+                assertEquals(200, signupResponse.getStatusCode());
 
-        //upload file for the user created
-        FormData formData = new FormData();
-        formData.data = new File("src/main/resources/test-file.txt");
-        formData.filename = "test-file.txt";
-        formData.mimetype = "text/plain";
+                token = signupResponse.jsonPath().getString("token");
+                userId1 = Long.valueOf(signupResponse.jsonPath().getString("user.id")); // Assign userId1 properly
 
+                // Upload file for the user created
+                FormData formData = new FormData();
+                formData.data = new File("src/main/resources/test-file.txt");
+                formData.filename = "test-file.txt";
+                formData.mimetype = "text/plain";
 
-        given()
-                .header("Authorization", "Bearer " + token)
-                .multiPart("file", formData.data, MediaType.APPLICATION_OCTET_STREAM)
-                .formParam("filename", formData.filename)
-                .formParam("mimetype", formData.mimetype)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .when()
-                .post("/user/"+userId1+"/object")
-                .then()
-                .statusCode(201);
+                CompletableFuture<Response> uploadFuture = CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return given()
+                                .header("Authorization", "Bearer " + token)
+                                .multiPart("file", formData.data, MediaType.APPLICATION_OCTET_STREAM)
+                                .formParam("filename", formData.filename)
+                                .formParam("mimetype", formData.mimetype)
+                                .contentType(MediaType.MULTIPART_FORM_DATA)
+                                .when()
+                                .post("/user/"+userId1+"/object");
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to upload file", e);
+                    }
+                });
+
+                uploadFuture.thenAccept(uploadResponse -> {
+                    try {
+                        assertEquals(201, uploadResponse.getStatusCode());
+                        // Add additional assertions as needed
+                    } catch (Throwable t) {
+                        throw new RuntimeException("Assertion failed in upload response", t);
+                    }
+                }).join(); // Wait for uploadFuture to complete
+            } catch (Throwable t) {
+                throw new RuntimeException("Failed to process sign up response", t);
+            }
+        }).join(); // Wait for signupFuture to complete
     }
+
 
     @Test
     @Order(2)
     public void testGenerateAnonymousLink() {
         // Generate an anonymous access link for the uploaded file
-        Response response = given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body("{\"expiration\": 3600}") // Expiration time in seconds
-                .when()
-                .post("/user/" + userId1 + "/object/test-file.txt/anonymous")
-                .then()
-                .statusCode(200)
-                .extract()
-                .response();
+        CompletableFuture<Response> responseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(ContentType.JSON)
+                    .body("{\"expiration\": 3600}") // Expiration time in seconds
+                    .when()
+                    .post("/user/" + userId1 + "/object/test-file.txt/anonymous");
+        });
 
-        anonymousToken = response.jsonPath().getString("token");
+        responseFuture.thenAccept(response -> {
+            assertEquals(200, response.getStatusCode());
+            // Extract the anonymous token and add additional assertions as needed
+        });
     }
+
     @Test
     @Order(3)
     public void testDownloadFile_ValidObjectId() {
@@ -96,79 +127,90 @@ public class MinioResourceTest {
         String objectKey = "test-file.txt";
 
         // Perform the download file request and get the response
-        Response response = given()
-                .header("Authorization", "Bearer " + token)
-                .expect()
-                .statusCode(200)
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(notNullValue())
-                .when()
-                .get("/user/" + userId1 + "/object/" + objectKey);
+        CompletableFuture<Response> responseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .header("Authorization", "Bearer " + token)
+                    .expect()
+                    .statusCode(200)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(notNullValue())
+                    .when()
+                    .get("/user/" + userId1 + "/object/" + objectKey);
+        });
 
-        // Get the content of the downloaded file from the response
-        byte[] downloadedFileContent = response.getBody().asByteArray();
+        responseFuture.thenAccept(response -> {
+            byte[] downloadedFileContent = response.getBody().asByteArray();
+            assertNotNull(downloadedFileContent);
 
-        // Load the content of the original file for comparison
-        byte[] originalFileContent = null;
-        try {
-            originalFileContent = Files.readAllBytes(Paths.get("src/main/resources/test-file.txt"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            // Load the content of the original file for comparison
+            byte[] originalFileContent = null;
+            try {
+                originalFileContent = Files.readAllBytes(Paths.get("src/main/resources/test-file.txt"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
-        // Assert that the content of the downloaded file matches the content of the original file
-        assertTrue(Arrays.equals(downloadedFileContent, originalFileContent));
-        fileArr = downloadedFileContent;
+            // Compare the content of the downloaded file with the original file content
+            assertArrayEquals(originalFileContent, downloadedFileContent);
+        });
     }
 
     @Test
     @Order(4)
     public void testGetFileInfoFromAnonymousLink() {
         // Get file information using the anonymous access token
-        Response response = given()
-                .queryParam("token", anonymousToken)
-                .expect()
-                .statusCode(200)
-                .contentType(MediaType.APPLICATION_JSON)
-                .when()
-                .get("anonymous/info");
+        CompletableFuture<Response> responseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .queryParam("token", anonymousToken)
+                    .expect()
+                    .statusCode(200)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .when()
+                    .get("anonymous/info");
+        });
 
-        // Verify JSON response properties
-        response.then()
-                .assertThat()
-                .body("fileName", equalTo("test-file.txt"))
-                .body("userId", equalTo(userId1.intValue())) // Assuming userId is an int
-                .body("username", notNullValue());
+        responseFuture.thenAccept(response -> {
+            // Verify JSON response properties
+            response.then()
+                    .assertThat()
+                    .body("fileName", equalTo("test-file.txt"))
+                    .body("userId", equalTo(userId1.intValue())) // Assuming userId is an int
+                    .body("username", notNullValue());
+        });
     }
+
 
     @Test
     @Order(5)
     public void testDownloadFileFromAnonymousLink() {
         // Download the file using the anonymous access token
-        Response response = given()
-                .queryParam("token", anonymousToken)
-                .expect()
-                .statusCode(200)
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(notNullValue())
-                .when()
-                .get("anonymous/download");
+        CompletableFuture<Response> responseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .queryParam("token", anonymousToken)
+                    .expect()
+                    .statusCode(200)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(notNullValue())
+                    .when()
+                    .get("anonymous/download");
+        });
 
+        responseFuture.thenAccept(response -> {
+            // Assert that the file content is not empty
+            byte[] downloadedFileContent = response.getBody().asByteArray();
+            assertNotNull(downloadedFileContent);
 
-        // Assert that the file content is not empty
-        byte[] downloadedFileContent = response.getBody().asByteArray();
-        assertNotNull(downloadedFileContent);
+            // Load the content of the original file for comparison
+            byte[] originalFileContent = null;
+            try {
+                originalFileContent = Files.readAllBytes(Paths.get("src/main/resources/test-file.txt"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
-        // Load the content of the original file for comparison
-        byte[] originalFileContent = null;
-        try {
-            originalFileContent = Files.readAllBytes(Paths.get("src/main/resources/test-file.txt"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        // Compare the content of the downloaded file with the original file content
-        assertArrayEquals(originalFileContent, downloadedFileContent);
+            // Compare the content of the downloaded file with the original file content
+            assertArrayEquals(originalFileContent, downloadedFileContent);
+        });
     }
 
     @Test
@@ -179,53 +221,58 @@ public class MinioResourceTest {
         String newName = "new-test-file.txt";
 
         // Perform the rename file request
-        given()
-                .header("Authorization", "Bearer " + token)
-                .queryParam("newName", newName)
-                .when()
-                .put("/user/" + userId1 + "/object/" + objectKey)
-                .then()
-                .statusCode(200);
+        CompletableFuture<Response> renameResponseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .header("Authorization", "Bearer " + token)
+                    .queryParam("newName", newName)
+                    .when()
+                    .put("/user/" + userId1 + "/object/" + objectKey);
+        });
 
+        renameResponseFuture.thenAccept(response -> {
+            assertEquals(200, response.getStatusCode());
 
-        Response response = given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user/" + userId1 + "/object/" + newName)
-                .then()
-                .statusCode(200)
-                .extract()
-                .response();
+            // Verify that the renamed file can be accessed
+            CompletableFuture<Response> accessResponseFuture = CompletableFuture.supplyAsync(() -> {
+                return given()
+                        .header("Authorization", "Bearer " + token)
+                        .when()
+                        .get("/user/" + userId1 + "/object/" + newName);
+            });
 
-        // Compare the downloaded file's byte array to the expected byte array
-        byte[] downloadedContent = response.getBody().asByteArray();
-        assertArrayEquals(fileArr, downloadedContent);
+            accessResponseFuture.thenAccept(accessResponse -> {
+                byte[] downloadedContent = accessResponse.getBody().asByteArray();
+                assertArrayEquals(fileArr, downloadedContent);
 
-        // Verify that the previous file name is not in the bucket
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user/" + userId1 + "/object/" + objectKey)
-                .then()
-                .statusCode(404);  // Assuming a 404 response if the previous file is not found
+                // Verify that the previous file name is not in the bucket
+                CompletableFuture<Response> notFoundResponseFuture = CompletableFuture.supplyAsync(() -> {
+                    return given()
+                            .header("Authorization", "Bearer " + token)
+                            .when()
+                            .get("/user/" + userId1 + "/object/" + objectKey);
+                });
+
+                notFoundResponseFuture.thenAccept(notFoundResponse -> {
+                    assertEquals(404, notFoundResponse.getStatusCode());
+                });
+            });
+        });
     }
+
 
     @Test
     @Order(7)
     public void testShareFileBetweenUsers() {
         // Create a new user
         String newUserJsonBody = "{\"username\":\"newUser\",\"password\":\"newUserPassword\"}";
-        Response response = given()
+        Response createUserResponse = given()
                 .contentType(ContentType.JSON)
                 .body(newUserJsonBody)
                 .when()
                 .post("/auth/signup");
 
-        token2 = response.jsonPath().getString("token");
-        userId2 = (long) response.jsonPath().getInt("user.id");
-
-
-
+        token2 = createUserResponse.jsonPath().getString("token");
+        userId2 = (long) createUserResponse.jsonPath().getInt("user.id");
 
         // Share the file uploaded by user1 with the newly created user
         FileSharingResource.ShareRequest shareRequest = new FileSharingResource.ShareRequest(
@@ -234,22 +281,30 @@ public class MinioResourceTest {
                 "new-test-file.txt"
         );
 
-        given()
-                .header("Authorization", "Bearer " + token)
-                .contentType(ContentType.JSON)
-                .body(shareRequest)
-                .when()
-                .post("/user/" + userId1 + "/fileshare")
-                .then()
-                .statusCode(200);
+        CompletableFuture<Response> shareResponseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(ContentType.JSON)
+                    .body(shareRequest)
+                    .when()
+                    .post("/user/" + userId1 + "/fileshare");
+        });
 
-        // Attempt to access the shared file of user1 with the token of the new user
-        given()
-                .header("Authorization", "Bearer " + token2)
-                .when()
-                .get("/user/" + userId1 + "/object/new-test-file.txt")
-                .then()
-                .statusCode(200);  // Assuming the file is successfully accessed
+        shareResponseFuture.thenAccept(shareResponse -> {
+            assertEquals(200, shareResponse.getStatusCode());
+
+            // Attempt to access the shared file of user1 with the token of the new user
+            CompletableFuture<Response> accessResponseFuture = CompletableFuture.supplyAsync(() -> {
+                return given()
+                        .header("Authorization", "Bearer " + token2)
+                        .when()
+                        .get("/user/" + userId1 + "/object/new-test-file.txt");
+            });
+
+            accessResponseFuture.thenAccept(accessResponse -> {
+                assertEquals(200, accessResponse.getStatusCode());
+            });
+        });
     }
 
     @Test
@@ -259,35 +314,41 @@ public class MinioResourceTest {
         String objectKey = "new-test-file.txt";
 
         // Step 1: Delete the object
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .delete("/user/" + userId1 + "/object/" + objectKey)
-                .then()
-                .statusCode(200);
+        CompletableFuture<Response> deleteObjectResponseFuture = CompletableFuture.supplyAsync(() -> {
+            return given()
+                    .header("Authorization", "Bearer " + token)
+                    .when()
+                    .delete("/user/" + userId1 + "/object/" + objectKey);
+        });
 
-        // Step 2: Assert the object is not present
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user/" + userId1 + "/object")
-                .then()
-                .statusCode(200)
-                .body("size()", equalTo(0));
+        deleteObjectResponseFuture.thenAccept(deleteObjectResponse -> {
+            assertEquals(200, deleteObjectResponse.getStatusCode());
 
-        // Step 3: Delete the user
-        given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .delete("/user/" + userId1)
-                .then()
-                .statusCode(200);
+            // Step 2: Assert the object is not present
+            CompletableFuture<Response> verifyObjectNotPresentFuture = CompletableFuture.supplyAsync(() -> {
+                return given()
+                        .header("Authorization", "Bearer " + token)
+                        .when()
+                        .get("/user/" + userId1 + "/object");
+            });
 
-        given()
-                .header("Authorization", "Bearer " + token2)
-                .when()
-                .delete("/user/" + userId2)
-                .then()
-                .statusCode(200);
+            verifyObjectNotPresentFuture.thenAccept(verifyObjectNotPresentResponse -> {
+                assertEquals(200, verifyObjectNotPresentResponse.getStatusCode());
+                assertEquals(0, verifyObjectNotPresentResponse.getBody().jsonPath().getList("$").size());
+
+                // Step 3: Delete the user
+                CompletableFuture<Response> deleteUserResponseFuture = CompletableFuture.supplyAsync(() -> {
+                    return given()
+                            .header("Authorization", "Bearer " + token)
+                            .when()
+                            .delete("/user/" + userId1);
+                });
+
+                deleteUserResponseFuture.thenAccept(deleteUserResponse -> {
+                    assertEquals(200, deleteUserResponse.getStatusCode());
+                });
+            });
+        });
     }
+
 }

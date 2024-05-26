@@ -2,6 +2,8 @@ package isel.leic.resource;
 
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.constraint.NotNull;
+import io.smallrye.mutiny.Uni;
+import isel.leic.exception.UserNotFoundException;
 import isel.leic.model.User;
 import isel.leic.service.MinioService;
 import isel.leic.service.UserService;
@@ -18,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 @Path("/user")
 @Produces(MediaType.APPLICATION_JSON)
@@ -36,46 +39,55 @@ public class UserResource {
 
     @GET
     @Authenticated
-    public Response getUsers() {
+    public Uni<Response> getUsers() {
         LOGGER.info("Received get request for all users");
-        List<User> users = userService.findAll();
-        LOGGER.info("HTTP 200 OK: Fetched {} users", users.size());
-        return Response.ok(users).build();
+        return userService.findAll()
+                .map(users -> {
+                    LOGGER.info("HTTP 200 OK: Fetched {} users", users.size());
+                    return Response.ok(users).build();
+                });
     }
 
     @PUT
     @Authenticated
     @Path("/{id}")
-    public Response updateUserPassword(
+    public Uni<Response> updateUserPassword(
             @PathParam("id") @NotNull Long id,
             @NotNull String newPassword,
             @Context SecurityContext securityContext
     ) {
         LOGGER.info("Received update password request for user: {}", id);
-        AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        User updatedUser = userService.updatePassword(id, newPassword);
-        LOGGER.info("HTTP 200 OK: Password updated successfully for user: {}", id);
-        return Response.ok().entity(updatedUser).build();
+        return userService.findById(id)
+                .onItem().ifNull().failWith(() -> new UserNotFoundException("User with ID " + id + " not found"))
+                .onItem().invoke(user -> AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName()))
+                .onItem().transformToUni(user -> userService.updatePassword(id, newPassword))
+                .map(updatedUser -> {
+                    LOGGER.info("HTTP 200 OK: Password updated successfully for user: {}", id);
+                    return Response.ok().entity(updatedUser).build();
+                });
     }
 
     @DELETE
     @Authenticated
     @Path("/{id}")
-    public Response deleteUser(
+    public Uni<Response> deleteUser(
             @PathParam("id") @NotNull Long id,
             @Context SecurityContext securityContext
     ) {
         LOGGER.info("Received delete request for user: {}", id);
-        AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        userService.removeUser(id);
-        CompletableFuture<String> deleteBucketFuture = minioService.deleteBucket(id + bucket_suffix);
-        // Await the completion of bucket deletion
-        deleteBucketFuture.join(); // This will block until the bucket deletion completes
-        LOGGER.info("HTTP 200 OK: User {} deleted successfully.", id);
-        return Response.ok().build();
+        return userService.findById(id)
+                .onItem().ifNull().failWith(() -> new WebApplicationException("User with ID " + id + " not found", Response.Status.NOT_FOUND))
+                .onItem().invoke(user -> AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName()))
+                .onItem().transformToUni(user -> userService.removeUser(id))
+                .onItem().transformToUni(result -> {
+                    CompletionStage<String> deleteBucketFuture = minioService.deleteBucket(id + bucket_suffix);
+                    return Uni.createFrom().completionStage(deleteBucketFuture);
+                })
+                .map(deletionResult -> {
+                    LOGGER.info("HTTP 200 OK: User {} deleted successfully.", id);
+                    return Response.ok().build();
+                });
     }
-
-
 
 
 }

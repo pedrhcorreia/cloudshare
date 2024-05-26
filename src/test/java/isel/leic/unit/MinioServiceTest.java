@@ -9,7 +9,6 @@ import org.junit.jupiter.api.*;
 import software.amazon.awssdk.services.s3.model.Bucket;
 
 import java.io.File;
-import java.net.URL;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -25,22 +24,24 @@ public class MinioServiceTest {
 
     @Test
     @Order(1)
-    public void testCreateBucket() throws InterruptedException, ExecutionException {
+    public void testCreateBucket() throws ExecutionException, InterruptedException {
         String bucketName = "test-bucket";
-        String result = minioService.createBucket(bucketName).join();
+        CompletableFuture<String> createBucketFuture = minioService.createBucket(bucketName);
+        String result = createBucketFuture.get();
         assertTrue(result.startsWith("Bucket created successfully"), "Bucket creation failed");
     }
 
     @Test
     @Order(2)
-    public void testListBuckets() throws InterruptedException, ExecutionException {
-        List<Bucket> buckets = minioService.listBuckets().join();
+    public void testListBuckets() throws ExecutionException, InterruptedException {
+        CompletableFuture<List<Bucket>> listBucketsFuture = minioService.listBuckets();
+        List<Bucket> buckets = listBucketsFuture.get();
         assertTrue(buckets.size() > 0, "No buckets found");
     }
 
     @Test
     @Order(3)
-    public void testUploadObject() {
+    public void testUploadObject() throws ExecutionException, InterruptedException {
         // Create FormData
         FormData formData = new FormData();
         formData.data = new File("src/main/resources/test-file.txt");
@@ -49,15 +50,16 @@ public class MinioServiceTest {
 
         // Upload the test object and wait for completion
         CompletableFuture<String> uploadFuture = minioService.uploadObject("test-bucket", formData);
-        String result = uploadFuture.join();
+        String result = uploadFuture.get();
         assertTrue(result.startsWith("Object uploaded successfully"), "Object upload failed");
     }
 
     @Test
     @Order(4)
-    public void testListObjectsAndDeleteObject() throws InterruptedException, ExecutionException {
+    public void testListObjectsAndDeleteObject() throws ExecutionException, InterruptedException {
         // List objects in the bucket
-        List<FileObject> response = minioService.listObjects("test-bucket", null).join();
+        CompletableFuture<List<FileObject>> listObjectsFuture = minioService.listObjects("test-bucket", null);
+        List<FileObject> response = listObjectsFuture.get();
 
         // Find the object named "test-file.txt" and get its object key
         String objectKey = null;
@@ -72,7 +74,8 @@ public class MinioServiceTest {
         assertNotNull(objectKey, "Object key not found");
 
         // Attempt to delete the object
-        String deleteResult = minioService.deleteObject("test-bucket", objectKey).join();
+        CompletableFuture<String> deleteObjectFuture = minioService.deleteObject("test-bucket", objectKey);
+        String deleteResult = deleteObjectFuture.get();
 
         // Assert that the deletion was successful
         assertTrue(deleteResult.startsWith("Object deleted successfully"), "Object deletion failed");

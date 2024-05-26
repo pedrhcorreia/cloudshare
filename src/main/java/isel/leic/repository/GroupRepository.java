@@ -1,35 +1,30 @@
 package isel.leic.repository;
 
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.smallrye.mutiny.Uni;
 import isel.leic.model.Group;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.persistence.NoResultException;
 
 import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
-public class GroupRepository implements PanacheRepository<Group> {
-    public boolean existsByCreatorIdAndName(Long creatorId, String name) {
-        try {
-            find("creatorId = ?1 and name = ?2", creatorId, name).singleResult();
-            return true; // Group with the same creatorId and name exists
-        } catch (NoResultException ex) {
-            return false; // No group found with the same creatorId and name
-        }
+public class GroupRepository implements PanacheRepositoryBase<Group, Long> {
+
+    public Uni<Boolean> existsByCreatorIdAndName(Long creatorId, String name) {
+        return find("creatorId = ?1 and name = ?2", creatorId, name)
+                .firstResult()
+                .map(group -> group != null);
     }
 
-    public Optional<List<Group>> findByCreatorId(Long creatorId) {
-        List<Group> groups = list("creatorId", creatorId);
-        return Optional.ofNullable(groups.isEmpty() ? null : groups);
+    public Uni<List<Group>> findByCreatorId(Long creatorId) {
+        return list("creatorId", creatorId);
     }
 
-    public Optional<Group> findByCreatorIdAndName(Long creatorId, String groupName) {
-        try {
-            Group group = find("creatorId = ?1 and name = ?2", creatorId, groupName).singleResult();
-            return Optional.of(group);
-        } catch (NoResultException ex) {
-            return Optional.empty();
-        }
+
+    public Uni<Optional<Group>> findByCreatorIdAndName(Long creatorId, String groupName) {
+        return find("creatorId = ?1 and name = ?2", creatorId, groupName)
+                .firstResult()
+                .map(Optional::ofNullable);
     }
 }

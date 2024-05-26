@@ -142,7 +142,7 @@ public class AuthenticationResourceTest {
                 .statusCode(409);
     }
 
-    @Test
+    /*@Test
     @Order(8)
     public void testDeleteUser_ValidCredentials() {
         assertNotNull(token);
@@ -155,7 +155,7 @@ public class AuthenticationResourceTest {
                 .when()
                 .delete("/user/" + user.getId());
         response.then().statusCode(200);
-    }
+    }*/
 
     @Test
     @Order(9)

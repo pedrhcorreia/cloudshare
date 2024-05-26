@@ -1,43 +1,39 @@
 package isel.leic.repository;
 
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import isel.leic.model.FileSharing;
-import isel.leic.model.User;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.persistence.NoResultException;
+import io.smallrye.mutiny.Uni;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
-
 @ApplicationScoped
-public class FileSharingRepository implements PanacheRepository<FileSharing> {
+public class FileSharingRepository implements PanacheRepositoryBase<FileSharing, Long> {
 
-    public boolean existsByUsersAndFilename(Long sharedByUserId, Long sharedToUserId, String filename) {
-        try {
-            // Check if there's a file sharing entry with the same filename between the two users
-            FileSharing result = find("((sharedByUserId = ?1 AND sharedToUserId = ?2) OR (sharedByUserId = ?2 AND sharedToUserId = ?1)) " +
-                    "AND filename = ?3", sharedByUserId, sharedToUserId, filename)
-                    .singleResult();
-            return true; // Entry exists
-        } catch (NoResultException e) {
-            return false; // Entry doesn't exist
-        }
+    public Uni<Boolean> existsByUsersAndFilename(Long sharedByUserId, Long sharedToUserId, String filename) {
+        return find("((sharedByUserId = ?1 AND sharedToUserId = ?2) OR (sharedByUserId = ?2 AND sharedToUserId = ?1)) " +
+                "AND filename = ?3", sharedByUserId, sharedToUserId, filename)
+                .singleResult()
+                .map(Objects::nonNull);
     }
 
-
-    public Optional<List<FileSharing>> findBySharedByUserId(Long sharedByUserId) {
-        List<FileSharing> fileSharings = list("sharedByUserId", sharedByUserId);
-        return Optional.ofNullable(fileSharings.isEmpty() ? null : fileSharings);
+    public Uni<Optional<List<FileSharing>>> findBySharedByUserId(Long sharedByUserId) {
+        return find("sharedByUserId", sharedByUserId)
+                .list()
+                .map(fileSharings -> fileSharings.isEmpty() ? Optional.empty() : Optional.of(fileSharings));
     }
 
-    public Optional<List<FileSharing>> findBySharedToUserId(Long sharedToUserId) {
-        List<FileSharing> fileSharings = list("sharedToUserId", sharedToUserId);
-        return Optional.ofNullable(fileSharings.isEmpty() ? null : fileSharings);
+    public Uni<Optional<List<FileSharing>>> findBySharedToUserId(Long sharedToUserId) {
+        return find("sharedToUserId", sharedToUserId)
+                .list()
+                .map(fileSharings -> fileSharings.isEmpty() ? Optional.empty() : Optional.of(fileSharings));
     }
 
-    public Optional<List<FileSharing>> findBySharedToGroupId(Long sharedToGroupId) {
-        List<FileSharing> fileSharings = list("sharedToGroupId", sharedToGroupId);
-        return Optional.ofNullable(fileSharings.isEmpty() ? null : fileSharings);
+    public Uni<Optional<List<FileSharing>>> findBySharedToGroupId(Long sharedToGroupId) {
+        return find("sharedToGroupId", sharedToGroupId)
+                .list()
+                .map(fileSharings -> fileSharings.isEmpty() ? Optional.empty() : Optional.of(fileSharings));
     }
 }

@@ -1,26 +1,33 @@
 package isel.leic.repository;
 
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import isel.leic.model.GroupMember;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
+import io.smallrye.mutiny.Uni;
 
 import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
-public class GroupMemberRepository implements PanacheRepository<GroupMember> {
-    public Optional<List<Long>> findUsersByGroupId(Long groupId) {
-        List<Long> userIds = find("groupId", groupId).stream().map(GroupMember::getUserId).toList();
-        return Optional.ofNullable(userIds.isEmpty() ? null : userIds);
+public class GroupMemberRepository implements PanacheRepositoryBase<GroupMember, Long> {
+
+    public Uni<Optional<List<Long>>> findUsersByGroupId(Long groupId) {
+        return find("groupId", groupId)
+                .list()
+                .map(groupMembers -> {
+                    List<Long> userIds = groupMembers.stream().map(GroupMember::getUserId).toList();
+                    return userIds.isEmpty() ? Optional.empty() : Optional.of(userIds);
+                });
     }
 
-    public Optional<List<GroupMember>> findByUserId(Long userId) {
-        List<GroupMember> groupMembers = find("userId", userId).list();
-        return Optional.ofNullable(groupMembers.isEmpty() ? null : groupMembers);
+    public Uni<Optional<List<GroupMember>>> findByUserId(Long userId) {
+        return find("userId", userId)
+                .list()
+                .map(groupMembers -> groupMembers.isEmpty() ? Optional.empty() : Optional.of(groupMembers));
     }
 
-    public void deleteByGroupIdAndUserId(Long groupId, Long userId) {
-        delete("groupId = ?1 and userId = ?2", groupId, userId);
+    public Uni<Void> deleteByGroupIdAndUserId(Long groupId, Long userId) {
+        return delete("groupId = ?1 and userId = ?2", groupId, userId)
+                .chain(() -> Uni.createFrom().voidItem());
     }
 }

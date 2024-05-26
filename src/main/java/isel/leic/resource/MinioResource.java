@@ -2,6 +2,7 @@ package isel.leic.resource;
 
 import io.quarkus.security.Authenticated;
 import io.smallrye.common.constraint.NotNull;
+import io.smallrye.mutiny.Uni;
 import isel.leic.model.storage.FileObject;
 import isel.leic.model.storage.FormData;
 import isel.leic.service.FileSharingService;
@@ -37,6 +38,9 @@ public class MinioResource {
     private static final Logger LOGGER = LoggerFactory.getLogger(MinioResource.class);
 
 
+    @POST
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Produces(MediaType.APPLICATION_JSON)
     public CompletableFuture<Response> uploadFile(
             @NotNull FormData formData,
             @PathParam("id") @NotNull Long id,
@@ -64,35 +68,47 @@ public class MinioResource {
         });
     }
 
-
-    public CompletableFuture<Response> downloadFile(
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/{objectKey}")
+    public Uni<Response> downloadFile(
             @PathParam("id") @NotNull Long id,
             @PathParam("objectKey") @NotNull String objectKey,
             @Context SecurityContext securityContext
     ) {
         LOGGER.info("Received request to download file '{}' for user with ID: {}", objectKey, id);
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                authorize(id, securityContext);
-            } catch (ForbiddenException e) {
-                // Check if file was shared with this user
-                String userId = getUserId(securityContext);
-                if (!fileSharingService.isFileSharedWithUser(id, Long.valueOf(userId), objectKey)) {
-                    // File is not shared with this user
-                    String errorMessage = String.format("User '%s' is not authorized to access this resource", id);
-                    LOGGER.error(errorMessage);
-                    throw new ForbiddenException(errorMessage);
-                } else {
-                    LOGGER.info("User '{}' is accessing file '{}' shared by user '{}'", userId, objectKey, id);
-                }
-            }
-            String bucketName = id + bucket_suffix;
-            return minioService.generatePresignedDownloadUrl(bucketName, objectKey)
-                    .thenApply(presignedUrl -> Response.ok(presignedUrl.toString()).build())
-                    .join(); // Since we are already inside a supplyAsync, it's safe to use join
-        });
+        return Uni.createFrom().item(() -> {
+                    try {
+                        authorize(id, securityContext);
+                    } catch (ForbiddenException e) {
+                        // Check if file was shared with this user
+                        String userId = getUserId(securityContext);
+                        return fileSharingService.isFileSharedWithUser(id, Long.valueOf(userId), objectKey)
+                                .map(shared -> {
+                                    if (!shared) {
+                                        // File is not shared with this user
+                                        String errorMessage = String.format("User '%s' is not authorized to access this resource", id);
+                                        LOGGER.error(errorMessage);
+                                        throw new ForbiddenException(errorMessage);
+                                    } else {
+                                        LOGGER.info("User '{}' is accessing file '{}' shared by user '{}'", userId, objectKey, id);
+                                        return true;
+                                    }
+                                });
+                    }
+                    return Uni.createFrom().item(true);
+                })
+                .onItem().transformToUni(ignored -> {
+                    String bucketName = id + bucket_suffix;
+                    return Uni.createFrom().completionStage(minioService.generatePresignedDownloadUrl(bucketName, objectKey))
+                            .map(presignedUrl -> {
+                                LOGGER.info("Presigned download URL generated successfully for file '{}' belonging to user with ID: {}", objectKey, id);
+                                return Response.ok().entity(presignedUrl).build();
+                            });
+                });
     }
-
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
     public CompletableFuture<List<FileObject>> listFiles(
             @PathParam("id") @NotNull Long id,
             @QueryParam("suffix") String suffix,
@@ -103,7 +119,8 @@ public class MinioResource {
         String bucketName = id + bucket_suffix;
         return minioService.listObjects(bucketName, suffix);
     }
-
+    @DELETE
+    @Path("/{objectKey}")
     public CompletableFuture<Response> deleteFile(
             @PathParam("id") @NotNull Long userId,
             @PathParam("objectKey") @NotNull String objectKey,
@@ -124,6 +141,8 @@ public class MinioResource {
                 });
     }
 
+    @PUT
+    @Path("/{objectKey}")
     public CompletableFuture<Response> renameFile(
             @PathParam("id") @NotNull Long userId,
             @PathParam("objectKey") @NotNull String objectKey,
@@ -144,7 +163,10 @@ public class MinioResource {
                     }
                 });
     }
-
+    @POST
+    @Path("/{objectKey}/anonymous-link")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     public CompletableFuture<Response> getAnonymousLink(
             @PathParam("id") @NotNull Long userId,
             @PathParam("objectKey") @NotNull String objectKey,
