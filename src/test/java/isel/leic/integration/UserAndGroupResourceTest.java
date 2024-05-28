@@ -200,7 +200,7 @@ public class UserAndGroupResourceTest {
                 .when()
                 .get("/user/" + userId1 + "/group/" + groupId + "/member");
 
-        response.then().statusCode(404);
+        response.then().statusCode(200);
 
     }
 

@@ -44,9 +44,10 @@ public class MinioServiceTest {
         // Create FormData
         FormData formData = new FormData();
         formData.data = new File("src/main/resources/test-file.txt");
-        formData.filename = "test-file.txt";
+        formData.filename = "/home/test-file.txt";
         formData.mimetype = "text/plain";
 
+        CompletableFuture<String> test = minioService.createEmptyFolder("test-bucket","home/test");
         // Upload the test object and wait for completion
         CompletableFuture<String> uploadFuture = minioService.uploadObject("test-bucket", formData);
         String result = uploadFuture.join();
@@ -57,12 +58,12 @@ public class MinioServiceTest {
     @Order(4)
     public void testListObjectsAndDeleteObject() throws InterruptedException, ExecutionException {
         // List objects in the bucket
-        List<FileObject> response = minioService.listObjects("test-bucket", null).join();
+        List<FileObject> response = minioService.listObjects("test-bucket", "home").join();
 
         // Find the object named "test-file.txt" and get its object key
         String objectKey = null;
         for (FileObject fileObject : response) {
-            if (fileObject.getObjectKey().equals("test-file.txt")) {
+            if (fileObject.getObjectKey().equals("home/test-file.txt")) {
                 objectKey = fileObject.getObjectKey();
                 break;
             }
