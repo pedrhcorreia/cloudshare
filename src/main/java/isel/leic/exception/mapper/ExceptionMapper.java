@@ -31,15 +31,13 @@ public class ExceptionMapper {
     @ServerExceptionMapper
     public RestResponse<String> mapCompletionException(CompletionException e) {
         String errorMessage = e.getMessage();
-        String statusCode = "500"; // Default status code
+        String statusCode = "500";
         if (errorMessage != null) {
-            // Regex pattern to match status code
             Pattern pattern = Pattern.compile("Status Code: (\\d+)");
             Matcher matcher = pattern.matcher(errorMessage);
             if (matcher.find()) {
                 statusCode = matcher.group(1);
             }
-            // Extract error message
             errorMessage = errorMessage.split("\\(Service")[0].trim();
         }
         LOGGER.error("CompletionException with status {} occurred: {}", statusCode, errorMessage, e);

@@ -2,8 +2,10 @@ package isel.leic.service;
 
 import isel.leic.exception.*;
 import isel.leic.model.FileSharing;
+import isel.leic.model.FileSharingResponse;
 import isel.leic.model.Group;
 import isel.leic.model.User;
+import isel.leic.model.storage.FileObject;
 import isel.leic.repository.FileSharingRepository;
 import isel.leic.repository.GroupRepository;
 import isel.leic.repository.UserRepository;
@@ -12,14 +14,17 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
-@Transactional
 public class FileSharingService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSharingService.class);
@@ -28,10 +33,13 @@ public class FileSharingService {
     FileSharingRepository fileSharingRepository;
     @Inject
     UserRepository userRepository;
+    @Inject
+    S3Client minioClient;
 
     @Inject
     GroupRepository groupRepository;
 
+    @Transactional
     public FileSharing shareFileToUser(Long sharedByUsername, Long sharedToUsername, String filename) {
         LOGGER.info("Sharing file '{}' from user with ID: {} to user with ID: {}", filename, sharedByUsername, sharedToUsername);
 
@@ -58,6 +66,7 @@ public class FileSharingService {
         return fileSharing;
     }
 
+    @Transactional
     public List<FileSharing> shareFileToGroup(Long sharedByUserId, Long sharedToGroupId, String filename) {
         LOGGER.info("Sharing file {} from user {} to group {}", filename, sharedByUserId, sharedToGroupId);
 
@@ -85,7 +94,7 @@ public class FileSharingService {
         return fileSharings;
     }
 
-
+    @Transactional
     public void unshareFile(Long fileSharingId) {
         LOGGER.info("Unsharing file with ID {}", fileSharingId);
 
@@ -101,7 +110,8 @@ public class FileSharingService {
         }
     }
 
-    public List<FileSharing> getFilesSharedByUser(Long userId) {
+
+    public List<FileSharingResponse> getFilesSharedByUser(Long userId) {
         LOGGER.info("Fetching files shared by user: {}", userId);
 
         User user = userRepository.findById(userId);
@@ -110,11 +120,26 @@ public class FileSharingService {
             throw new UserNotFoundException("User " + userId + " not found");
         }
 
-        Optional<List<FileSharing>> sharedFilesOptional = fileSharingRepository.findBySharedByUserId(userId);
-        return sharedFilesOptional.orElse(Collections.emptyList());
+        List<FileSharing> sharedFiles = fileSharingRepository.findBySharedByUserId(userId)
+                .orElse(Collections.emptyList());
+
+        List<FileSharingResponse> responseList = new ArrayList<>();
+        for (FileSharing fileSharing : sharedFiles) {
+            User sharedToUser = userRepository.findById(fileSharing.getSharedToUserId());
+            if (sharedToUser != null) {
+                fileSharing.setSharedToUsername(sharedToUser.getUsername());
+            }
+
+            List<FileObject> fileObjects = listObjectsFromBucket(fileSharing.getSharedByUserId(), fileSharing.getFilename());
+            for (FileObject fileObject : fileObjects) {
+                responseList.add(new FileSharingResponse(fileSharing, fileObject));
+            }
+        }
+
+        return responseList;
     }
 
-    public List<FileSharing> getFilesSharedToUser(Long sharedToUserId) {
+    public List<FileSharingResponse> getFilesSharedToUser(Long sharedToUserId) {
         LOGGER.info("Fetching files shared to user: {}", sharedToUserId);
 
         User user = userRepository.findById(sharedToUserId);
@@ -123,19 +148,52 @@ public class FileSharingService {
             throw new UserNotFoundException("User with ID: " + sharedToUserId + " not found");
         }
 
-        Optional<List<FileSharing>> sharedFilesOptional = fileSharingRepository.findBySharedToUserId(sharedToUserId);
-        return sharedFilesOptional.orElse(Collections.emptyList());
+        List<FileSharing> sharedFiles = fileSharingRepository.findBySharedToUserId(sharedToUserId)
+                .orElse(Collections.emptyList());
+
+        List<FileSharingResponse> responseList = new ArrayList<>();
+        for (FileSharing fileSharing : sharedFiles) {
+            User sharedByUser = userRepository.findById(fileSharing.getSharedByUserId());
+            if (sharedByUser != null) {
+                fileSharing.setSharedByUsername(sharedByUser.getUsername());
+            }
+
+            List<FileObject> fileObjects = listObjectsFromBucket(fileSharing.getSharedByUserId(), fileSharing.getFilename());
+            for (FileObject fileObject : fileObjects) {
+                responseList.add(new FileSharingResponse(fileSharing, fileObject));
+            }
+        }
+
+        return responseList;
+    }
+
+
+    private List<FileObject> listObjectsFromBucket(Long userId, String filename) {
+        String bucketName = userId + "-bucket";
+
+        ListObjectsV2Request listObjectsReqManual = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(filename)
+                .build();
+
+        ListObjectsV2Response listObjResponse = minioClient.listObjectsV2(listObjectsReqManual);
+
+        return listObjResponse.contents().stream()
+                .map(FileObject::from)
+                .collect(Collectors.toList());
     }
 
 
     public boolean isFileSharedWithUser(Long ownerId, Long userId, String filename) {
-        List<FileSharing> sharedFiles = getFilesSharedByUser(ownerId);
+        List<FileSharing> sharedFiles = fileSharingRepository.findBySharedByUserId(ownerId)
+                .orElse(Collections.emptyList());
+
         for (FileSharing fileSharing : sharedFiles) {
             if (fileSharing.getFilename().equals(filename) && fileSharing.getSharedToUserId().equals(userId)) {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 }

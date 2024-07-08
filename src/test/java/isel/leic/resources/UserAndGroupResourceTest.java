@@ -1,4 +1,4 @@
-package isel.leic.integration;
+package isel.leic.resources;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -130,7 +130,7 @@ public class UserAndGroupResourceTest {
 
         updateResponse.then().statusCode(200);
 
-        // Fetch the updated group
+
         Response fetchResponse = given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("Authorization", "Bearer " + token)
@@ -164,7 +164,7 @@ public class UserAndGroupResourceTest {
     @Test
     @Order(7)
     public void testGetGroupMembers() {
-        // Get the members of the previously created group
+
         Response response = given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("Authorization", "Bearer " + token)
@@ -193,7 +193,7 @@ public class UserAndGroupResourceTest {
     @Test
     @Order(9)
     public void testGetEmptyGroupMembers() {
-        // Get the members of the previously created group
+
         Response response = given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("Authorization", "Bearer " + token)

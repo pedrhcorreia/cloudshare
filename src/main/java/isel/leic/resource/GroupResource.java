@@ -43,11 +43,11 @@ public class GroupResource {
     public Response createGroup(
             @PathParam("id") @NotNull Long id,
             @Context SecurityContext securityContext,
-            String name
+            @NotNull createGroup group
     ){
         LOGGER.info("Received create group request for user with ID: {}", id);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        Group createdGroup = groupService.createGroup(id, name);
+        Group createdGroup = groupService.createGroup(id, group.name);
         return Response.ok().entity(createdGroup).build();
     }
 
@@ -57,12 +57,12 @@ public class GroupResource {
     public Response updateGroupName(
             @PathParam("id") @NotNull Long id,
             @PathParam("groupId") @NotNull Long groupId,
-            @NotNull String newName,
+            @NotNull createGroup group,
             @Context SecurityContext securityContext
     ){
         LOGGER.info("Received update group name request for group with ID: {}", groupId);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        Group updatedGroup = groupService.updateGroupName(groupId, newName);
+        Group updatedGroup = groupService.updateGroupName(groupId, group.name);
         LOGGER.info("HTTP 200 OK: Group name updated successfully for group with ID: {}", groupId);
         return Response.ok().entity(updatedGroup).build();
     }
@@ -88,12 +88,12 @@ public class GroupResource {
             @PathParam("id") @NotNull Long id,
             @PathParam("groupId") @NotNull Long groupId,
             @Context SecurityContext securityContext,
-            @NotNull Long userId
+            @NotNull addUser addUser
     ) {
         LOGGER.info("Received a request to add user with ID: {} to group with ID: {}", id, groupId);
         AuthorizationUtils.checkAuthorization(id, securityContext.getUserPrincipal().getName());
-        groupService.addUserToGroup(userId, groupId);
-        LOGGER.info("HTTP 200 OK: User with ID: {} added to group with ID: {}", userId, groupId);
+        groupService.addUserToGroup(addUser.userId, groupId);
+        LOGGER.info("HTTP 200 OK: User with ID: {} added to group with ID: {}", addUser.userId, groupId);
         return Response.ok().build();
     }
 
@@ -126,4 +126,6 @@ public class GroupResource {
         groupService.removeUserFromGroup(memberId,groupId);
         return Response.ok().build();
     }
+    private record createGroup(String name){};
+    private record addUser(Long userId){};
 }

@@ -1,9 +1,8 @@
-package isel.leic.unit;
+package isel.leic.services;
 
 import io.quarkus.test.junit.QuarkusTest;
 import isel.leic.exception.DuplicateResourceException;
 import isel.leic.exception.GroupNotFoundException;
-import isel.leic.exception.MembersNotFoundException;
 import isel.leic.model.Group;
 import isel.leic.model.User;
 import isel.leic.service.GroupService;
@@ -36,10 +35,9 @@ public class UserAndGroupServiceTest {
         userService.createUser(user1);
         userService.createUser(user2);
 
-        // Call the UserService method being tested
+
         List<User> users = userService.findAll();
 
-        // Check that the returned list is not null and contains the expected users
         assertNotNull(users);
         assertEquals(2, users.size());
         assertEquals("user1", users.get(0).getUsername());
@@ -54,7 +52,7 @@ public class UserAndGroupServiceTest {
         List<Group> groups = userService.findUserGroups(user.getId());
         assertEquals(1, groups.size(), "The list should contain exactly one group");
 
-        // Assert that the group name matches
+
         assertEquals("TestGroup", groups.get(0).getName(), "The group name should match");
     }
 
@@ -118,9 +116,20 @@ public class UserAndGroupServiceTest {
         assertEquals(1, usersFromGroup.size());
         userService.removeUser(user2.getId());
     }
-
     @Test
     @Order(7)
+    public void testUpdateGroupName() {
+        User user = userService.findByUsername("user1");
+        Group group = userService.findUserGroups(user.getId()).get(0);
+
+        groupService.updateGroupName(group.getId(), "TestGroupUpdate");
+
+        group = userService.findUserGroups(user.getId()).get(0);
+        assertEquals("TestGroupUpdate", group.getName());
+
+    }
+    @Test
+    @Order(8)
     public void testRemoveGroup() {
         User user = userService.findByUsername("user3");
         groupService.createGroup(user.getId(),"TestGroup2");
@@ -138,17 +147,17 @@ public class UserAndGroupServiceTest {
     }
 
     @Test
-    @Order(8)
+    @Order(9)
     public void testDeleteUser() {
         User user = userService.findByUsername("user1");
         User user3 = userService.findByUsername("user3");
 
         userService.removeUser(user3.getId());
 
-        // Verify that the user is deleted
+
         assertNull(userService.findById(user3.getId()));
 
-        // Verify that the user is removed from all groups
+
         List<Group> groups = userService.findUserGroups(user.getId());
         assertEquals(0,groupService.getGroupMembers(groups.get(0).getId()).size());
         userService.removeUser(user.getId());

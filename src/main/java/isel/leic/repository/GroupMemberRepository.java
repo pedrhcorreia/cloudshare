@@ -3,7 +3,7 @@ package isel.leic.repository;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import isel.leic.model.GroupMember;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
+
 
 import java.util.List;
 import java.util.Optional;

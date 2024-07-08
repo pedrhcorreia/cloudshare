@@ -1,9 +1,10 @@
-package isel.leic.integration;
+package isel.leic.resources;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import isel.leic.model.FileSharing;
+import isel.leic.model.FileSharingResponse;
 import isel.leic.model.Group;
 import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.*;
@@ -32,7 +33,7 @@ public class FileSharingResourceTest {
     @Test
     @Order(1)
     public void testShareFileToUser_ValidRequest() {
-        //Create first user
+
         Response response = given()
                 .contentType(ContentType.JSON)
                 .body("{\"username\":\"testUser\",\"password\":\"testPassword\"}")
@@ -43,7 +44,7 @@ public class FileSharingResourceTest {
         user1Id = (long) response.jsonPath().getInt("user.id");
 
 
-        //Create second user
+
         Response response2 = given()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{\"username\":\"newUser\",\"password\":\"newPassword\"}")
@@ -95,6 +96,16 @@ public class FileSharingResourceTest {
                 .when()
                 .post("/user/" + user1Id + "/group/" + createdGroup.getId());
 
+
+        given()
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + token)
+                .body("{\"userId\":" + user2Id + "}")
+                .when()
+                .post("/user/" + user1Id + "/group/" + createdGroup.getId())
+                .then()
+                .statusCode(200);
+
         String jsonBody = "{\"recipientType\":\"GROUP\",\"recipientId\":" + createdGroup.getId() + ",\"filename\":\"" + "example.txt" + "\"}";
 
         given()
@@ -110,6 +121,7 @@ public class FileSharingResourceTest {
     @Test
     @Order(3)
     public void testGetFilesSharedByUser_ValidRequest() {
+        // Make a GET request to fetch files shared by user
         Response response = given()
                 .header("Authorization", "Bearer " + token)
                 .when()
@@ -119,15 +131,25 @@ public class FileSharingResourceTest {
                 .contentType(ContentType.JSON)
                 .extract().response();
 
-        List<FileSharing> sharedFiles = response.jsonPath().getList(".", FileSharing.class);
+        List<FileSharingResponse> sharedFiles = response.jsonPath().getList("$", FileSharingResponse.class);
 
-
+        // Assertions on the response
         Assertions.assertEquals(2, sharedFiles.size());
 
-        Assertions.assertEquals(user2Id, sharedFiles.get(0).getSharedToUserId());
-        Assertions.assertEquals(user3Id, sharedFiles.get(1).getSharedToUserId());
-        fileShareId = sharedFiles.get(0).getId();
+        // Verify details of the first shared file
+        Assertions.assertEquals(user2Id, sharedFiles.get(0).getFileSharing().getSharedToUserId());
+        Assertions.assertEquals("username2", sharedFiles.get(0).getFileSharing().getSharedToUsername()); // Assuming this is the username
+        Assertions.assertEquals("filename1.txt", sharedFiles.get(0).getFileSharing().getFilename()); // Assuming filename for first file
+
+        // Verify details of the second shared file
+        Assertions.assertEquals(user3Id, sharedFiles.get(1).getFileSharing().getSharedToUserId());
+        Assertions.assertEquals("username3", sharedFiles.get(1).getFileSharing().getSharedToUsername()); // Assuming this is the username
+        Assertions.assertEquals("filename2.txt", sharedFiles.get(1).getFileSharing().getFilename()); // Assuming filename for second file
+
+        // Optionally, store the fileShareId for further assertions or tests
+        fileShareId = sharedFiles.get(0).getFileSharing().getId();
     }
+
 
     @Test
     @Order(4)

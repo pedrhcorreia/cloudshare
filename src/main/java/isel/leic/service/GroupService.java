@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-@Transactional
+
 @ApplicationScoped
 public class GroupService {
     private static final Logger LOGGER = LoggerFactory.getLogger(GroupService.class);
@@ -37,6 +37,8 @@ public class GroupService {
             throw new GroupNotFoundException("Group not found");
         }
     }
+
+    @Transactional
     public Group createGroup(Long creatorId, String groupName) throws IllegalArgumentException {
 
         if (creatorId == null || groupName == null) {
@@ -59,6 +61,7 @@ public class GroupService {
         return group;
     }
 
+    @Transactional
     public Group updateGroupName(Long groupId, String newName) {
         if (groupId == null || newName == null) {
             LOGGER.error("Group ID and new name cannot be null");
@@ -77,6 +80,7 @@ public class GroupService {
         return group;
     }
 
+    @Transactional
     public void addUserToGroup(Long userId, Long groupId) {
         if (userId == null) {
             LOGGER.error("userId is null");
@@ -164,6 +168,7 @@ public class GroupService {
         return userGroups;
     }
 
+    @Transactional
     public void removeUserFromGroup(Long userId, Long groupId) {
 
         Group group = groupRepository.findById(groupId);
@@ -181,7 +186,7 @@ public class GroupService {
         LOGGER.info("User with ID '{}' removed from group with ID '{}'", userId, groupId);
     }
 
-
+    @Transactional
     public void removeGroup(Long id) throws IllegalArgumentException {
         LOGGER.info("Removing group with ID: {}", id);
 

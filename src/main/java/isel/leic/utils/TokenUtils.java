@@ -29,9 +29,7 @@ public class TokenUtils {
         claimsBuilder.subject(String.valueOf(userId));
         claimsBuilder.issuedAt(currentTimeInSecs);
         claimsBuilder.expiresAt(currentTimeInSecs + duration);
-        // Set other claims as needed
 
-        // Specify the signature algorithm explicitly
         return claimsBuilder.jws().algorithm(SignatureAlgorithm.RS256).sign(privateKey);
     }
 

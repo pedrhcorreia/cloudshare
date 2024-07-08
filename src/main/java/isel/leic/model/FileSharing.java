@@ -17,11 +17,16 @@ public class FileSharing {
     @Column(name = "shared_to_user_id")
     private Long sharedToUserId;
 
+    @Transient
+    private String sharedByUsername;
+
+    @Transient
+    private String sharedToUsername;
 
     @Column(name = "filename", nullable = false)
     private String filename;
 
-    // Constructors
+
     public FileSharing() {
     }
 
@@ -32,7 +37,7 @@ public class FileSharing {
         this.filename = filename;
     }
 
-    // Getters and setters
+
     public Long getId() {
         return id;
     }
@@ -57,7 +62,18 @@ public class FileSharing {
         this.sharedToUserId = sharedToUserId;
     }
 
-
+    public void setSharedByUsername(String sharedByUsername){
+        this.sharedByUsername = sharedByUsername;
+    }
+    public void setSharedToUsername(String sharedToUsername){
+        this.sharedToUsername = sharedToUsername;
+    }
+    public String getSharedToUsername(){
+        return  sharedToUsername;
+    }
+    public String getSharedByUsername(){
+        return sharedByUsername;
+    }
     public String getFilename() {
         return filename;
     }

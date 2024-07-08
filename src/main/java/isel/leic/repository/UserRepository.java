@@ -19,4 +19,10 @@ public class UserRepository implements PanacheRepository<User> {
         List<User> users = find("select u from User u join GroupMember gm on u.id = gm.userId where gm.groupId = ?1", groupId).list();
         return Optional.ofNullable(users.isEmpty() ? null : users);
     }
+
+    public Optional<List<User>> findByUsernamePrefix(String prefix) {
+        List<User> users = list("username like ?1", prefix + "%");
+        return users.isEmpty() ? Optional.empty() : Optional.of(users);
+    }
+
 }

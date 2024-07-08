@@ -1,4 +1,4 @@
-package isel.leic.integration;
+package isel.leic.resources;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
