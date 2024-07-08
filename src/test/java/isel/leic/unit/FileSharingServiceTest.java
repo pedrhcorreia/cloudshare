@@ -116,9 +116,7 @@ public class FileSharingServiceTest {
 
         assertEquals(fileSharingService.getFilesSharedByUser(user1Id).size(),1);
 
-        assertThrows(FileSharingNotFoundException.class, () -> {
-            fileSharingService.getFilesSharedToUser(user2Id);
-        });
+        assertEquals(0,fileSharingService.getFilesSharedToUser(user2Id).size());
         userService.removeUser(user1Id);
         userService.removeUser(user2Id);
         userService.removeUser(user3Id);

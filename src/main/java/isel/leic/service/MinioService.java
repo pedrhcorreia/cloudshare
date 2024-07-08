@@ -16,10 +16,13 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URL;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 @ApplicationScoped
 public class MinioService {
@@ -49,6 +52,40 @@ public class MinioService {
                     LOGGER.info("Bucket created successfully: {}", bucketName);
                     return "Bucket created successfully: " + bucketName;
                 });
+    }
+
+    public CompletableFuture<String> createEmptyFolder(String bucketName, String folderName) {
+        LOGGER.info("Creating empty folder: {} in bucket: {}", folderName, bucketName);
+
+        try {
+            File emptyFile = File.createTempFile(folderName, ".tmp");
+            try (FileOutputStream fos = new FileOutputStream(emptyFile)) {
+                // Write zero bytes
+            }
+            emptyFile.deleteOnExit();
+
+            FormData formData = new FormData();
+            formData.data = emptyFile;
+            formData.filename = folderName + "/";
+            formData.mimetype = "application/x-directory";
+
+            return uploadObject(bucketName, formData).thenApply(result -> {
+                if (result.startsWith("Object uploaded successfully")) {
+                    LOGGER.info("Empty folder created successfully: {} in bucket: {}", folderName, bucketName);
+                    return "Folder created successfully";
+                } else {
+                    String errorMessage = "Failed to create folder: " + folderName + " in bucket: " + bucketName;
+                    LOGGER.error(errorMessage);
+                    throw new CompletionException(new Exception(errorMessage));
+                }
+            }).exceptionally(ex -> {
+                LOGGER.error("Exception occurred while creating empty folder: {} in bucket: {}", folderName, bucketName, ex);
+                return "Failed to create folder";
+            });
+        } catch (Exception e) {
+            LOGGER.error("Exception occurred while preparing to create empty folder: {} in bucket: {}", folderName, bucketName, e);
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     public CompletableFuture<String> deleteBucket(String bucketName) {

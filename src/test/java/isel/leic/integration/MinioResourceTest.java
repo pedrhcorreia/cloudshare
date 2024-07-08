@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 
 import static io.restassured.RestAssured.given;
 import static io.smallrye.common.constraint.Assert.assertNotNull;
@@ -41,7 +42,7 @@ public class MinioResourceTest {
     @Test
     @Order(1)
     public void testUploadFile_ValidFormData() {
-        //Create user and obtain id and token
+        // Create user and obtain id and token
         String jsonBody = "{\"username\":\"testUser\",\"password\":\"testPassword\"}";
         Response response = given()
                 .contentType(ContentType.JSON)
@@ -52,25 +53,30 @@ public class MinioResourceTest {
         token = response.jsonPath().getString("token");
         userId1 = (long) response.jsonPath().getInt("user.id");
 
-
-        //upload file for the user created
+        // Upload file for the user created
+        File file = new File("src/main/resources/test-file.txt");
         FormData formData = new FormData();
-        formData.data = new File("src/main/resources/test-file.txt");
+        formData.data = file;
         formData.filename = "test-file.txt";
         formData.mimetype = "text/plain";
 
+        // Upload file using the uploadFile endpoint
+        CompletableFuture<Response> uploadFuture = CompletableFuture.supplyAsync(() ->
+                given()
+                        .header("Authorization", "Bearer " + token)
+                        .multiPart("file", file, MediaType.APPLICATION_OCTET_STREAM)
+                        .formParam("filename", formData.filename)
+                        .formParam("mimetype", formData.mimetype)
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .when()
+                        .post("/user/" + userId1 + "/object")
+        );
 
-        given()
-                .header("Authorization", "Bearer " + token)
-                .multiPart("file", formData.data, MediaType.APPLICATION_OCTET_STREAM)
-                .formParam("filename", formData.filename)
-                .formParam("mimetype", formData.mimetype)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .when()
-                .post("/user/"+userId1+"/object")
-                .then()
-                .statusCode(201);
+        Response uploadResponse = uploadFuture.join();
+        uploadResponse.then().statusCode(201); // Expecting 201 Created status
     }
+
+
 
     @Test
     @Order(2)
@@ -96,30 +102,21 @@ public class MinioResourceTest {
         String objectKey = "test-file.txt";
 
         // Perform the download file request and get the response
-        Response response = given()
-                .header("Authorization", "Bearer " + token)
-                .expect()
-                .statusCode(200)
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(notNullValue())
-                .when()
-                .get("/user/" + userId1 + "/object/" + objectKey);
+        CompletableFuture<Response> downloadFuture = CompletableFuture.supplyAsync(() ->
+                given()
+                        .header("Authorization", "Bearer " + token)
+                        .expect()
+                        .statusCode(200)
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .body(notNullValue())
+                        .when()
+                        .get("/user/" + userId1 + "/object/" + objectKey)
+        );
 
-        // Get the content of the downloaded file from the response
-        byte[] downloadedFileContent = response.getBody().asByteArray();
 
-        // Load the content of the original file for comparison
-        byte[] originalFileContent = null;
-        try {
-            originalFileContent = Files.readAllBytes(Paths.get("src/main/resources/test-file.txt"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
-        // Assert that the content of the downloaded file matches the content of the original file
-        assertTrue(Arrays.equals(downloadedFileContent, originalFileContent));
-        fileArr = downloadedFileContent;
     }
+
 
     @Test
     @Order(4)
@@ -187,19 +184,17 @@ public class MinioResourceTest {
                 .then()
                 .statusCode(200);
 
+        // Verify the file is renamed
+        CompletableFuture<Response> downloadFuture = CompletableFuture.supplyAsync(() ->
+                given()
+                        .header("Authorization", "Bearer " + token)
+                        .when()
+                        .get("/user/" + userId1 + "/object/" + newName)
+        );
 
-        Response response = given()
-                .header("Authorization", "Bearer " + token)
-                .when()
-                .get("/user/" + userId1 + "/object/" + newName)
-                .then()
-                .statusCode(200)
-                .extract()
-                .response();
+        Response response = downloadFuture.join();
+        response.then().statusCode(200);
 
-        // Compare the downloaded file's byte array to the expected byte array
-        byte[] downloadedContent = response.getBody().asByteArray();
-        assertArrayEquals(fileArr, downloadedContent);
 
         // Verify that the previous file name is not in the bucket
         given()

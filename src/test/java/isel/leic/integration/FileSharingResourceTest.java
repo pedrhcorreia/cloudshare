@@ -2,12 +2,9 @@ package isel.leic.integration;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-
-import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import isel.leic.model.FileSharing;
 import isel.leic.model.Group;
-import jakarta.json.Json;
 import jakarta.ws.rs.core.MediaType;
 import org.junit.jupiter.api.*;
 

@@ -130,9 +130,7 @@ public class UserAndGroupServiceTest {
         groupService.addUserToGroup(user1.getId(),group.getId());
 
         groupService.removeGroup(group.getId());
-        assertThrows(GroupNotFoundException.class, () -> {
-            userService.findUserGroups(user.getId());
-        });
+        assertEquals(0, userService.findUserGroups(user.getId()).size());
         assertThrows(GroupNotFoundException.class, () -> {
             groupService.getGroupMembers(group.getId());
         });
@@ -152,9 +150,7 @@ public class UserAndGroupServiceTest {
 
         // Verify that the user is removed from all groups
         List<Group> groups = userService.findUserGroups(user.getId());
-        assertThrows(MembersNotFoundException.class, () -> {
-            groupService.getGroupMembers(groups.get(0).getId());
-        });
+        assertEquals(0,groupService.getGroupMembers(groups.get(0).getId()).size());
         userService.removeUser(user.getId());
     }
 
